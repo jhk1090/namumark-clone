@@ -4,23 +4,25 @@ export declare class NamuMark {
     constructor(wikiText: string, options?: undefined);
     parse(): string;
     listProcessor(wikiText: string, pos: number, setPos: (v: number) => number): void;
-    listParser(text: string, indent: number): HTMLTag[];
+    listParser(text: string, indent: number): HTMLTag;
     arrayToHtmlString(): string;
 }
 declare enum tagEnum {
     text = 0,
     plain_text = 1,
-    unordered_list_start = 2,
-    unordered_list_end = 3,
-    list_start = 4,
-    list_end = 5
+    unordered_list = 2,
+    list = 3
 }
 declare class HTMLTag {
     tag: string;
-    content: (string | undefined);
-    property: {};
-    constructor(tag: tagEnum, content?: (string | undefined), property?: {});
-    caseAssertion(tag: tagEnum): "" | "<div>" | "<ul>" | "</ul>" | "<li>" | "</li>";
+    content: string;
+    property: {
+        [k: string]: any;
+    };
+    children: HTMLTag[];
+    constructor(tag: tagEnum, property?: {}, content?: string);
+    caseAssertion(tag: tagEnum): "" | "<div>" | "<ul>" | "<li>";
     toString(): string;
+    addChildren(children: HTMLTag): HTMLTag;
 }
 export {};

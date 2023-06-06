@@ -29,7 +29,8 @@ export class NamuMark {
     }
 
     listProcessor(wikiText: string, pos: number, setPos: (v: number)=>number) {
-        let listArray = [];
+        let listArray: HTMLTag[] = [];
+        let fullArray: any[] = [];
         let position = pos;
         // EOL 뒤에 텍스트가 있는지 여부
         let loop = true;
@@ -51,11 +52,64 @@ export class NamuMark {
                 text = wikiText.substring(position, eol);
             }
         }
+
+        for (const [index, element] of listArray.entries()) {
+            const indent = element.property.indent
+            if (indent == 1) {
+                fullArray.push(new HTMLTag(tagEnum.unordered_list_begin, {indent}))
+                fullArray.push(new HTMLTag(tagEnum.list_begin, {indent}))
+                fullArray.push(element)
+                fullArray.push(undefined)
+                fullArray.push(new HTMLTag(tagEnum.list_end, {indent}))
+                fullArray.push(new HTMLTag(tagEnum.unordered_list_end, {indent}))
+            } else {
+                if (indent > (fullArray[fullArray.length - 1] as HTMLTag).property.indent) {
+                    let indentDifference = Math.abs(indent - (fullArray[fullArray.length - 1] as HTMLTag).property.indent)
+                    let lastUndefined = fullArray.lastIndexOf(undefined);
+                    if (indentDifference == 1) {
+                        fullArray.splice(lastUndefined, 1, ...[
+                            new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+                            new HTMLTag(tagEnum.list_begin, {indent}),
+                            element,
+                            undefined,
+                            new HTMLTag(tagEnum.list_end, {indent}),
+                            new HTMLTag(tagEnum.unordered_list_end, {indent})
+                        ])
+                    } else {
+                        let es: any[] = []
+                        es.push(
+                            new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+                            new HTMLTag(tagEnum.plain_text_begin, {indent}),
+                        )
+                        for(let i=0; i < indentDifference - 1; i++) {
+                            es.push(
+                                new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+                                new HTMLTag(tagEnum.list_begin, {indent}),
+                            )
+                        }
+                        es.push(element)
+                        es.push(undefined)
+                        for(let i=0; i < indentDifference - 1; i++) {
+                            es.push(
+                                new HTMLTag(tagEnum.list_end, {indent}),
+                                new HTMLTag(tagEnum.unordered_list_end, {indent})
+                            )
+                        }
+                        es.push(
+                            new HTMLTag(tagEnum.plain_text_end, {indent}),
+                            new HTMLTag(tagEnum.unordered_list_end, {indent})
+                        )
+                        fullArray.splice(lastUndefined, 1, ...es);
+                    }
+                }
+                "<ul> <li> <div>Hello</div> <ul> <div> <ul> <li> <div>333</div> </li> </ul> </div> <li> <div>222</div> </li> </ul> </li> </ul>"
+            }
+        }
         setPos(position);
     }
 
     listParser(text: string, indent: number) {
-        let listArray = [];
+        let tag: HTMLTag;
         let matchedRegex = /^(\*|1\.|A\.|a\.|I\.|i\.)([^\n]+)/g
         let listPrefix = "";
         let listContent = "";
@@ -66,14 +120,9 @@ export class NamuMark {
             break;
         }
 
+        tag = new HTMLTag(tagEnum.plain_text, {indent}, listContent)
         
-        listArray.push(new HTMLTag(tagEnum.unordered_list_start, undefined, {indent}))
-        listArray.push(new HTMLTag(tagEnum.list_start, undefined, {indent}))
-        listArray.push(new HTMLTag(tagEnum.text, listContent, {indent}))
-        listArray.push(new HTMLTag(tagEnum.list_end, undefined, {indent}))
-        listArray.push(new HTMLTag(tagEnum.unordered_list_end, undefined, {indent}))
-        
-        return listArray;
+        return tag;
     }
 
     arrayToHtmlString() {
@@ -91,18 +140,20 @@ export class NamuMark {
 enum tagEnum {
     text,
     plain_text,
-    unordered_list_start,
+    plain_text_end,
+    plain_text_begin,
+    unordered_list_begin,
     unordered_list_end,
-    list_start,
+    list_begin,
     list_end
 }
 
 class HTMLTag {
     tag: string;
     content: (string | undefined);
-    property: {};
+    property: {[k: string]: any};
 
-    constructor(tag: tagEnum, content: (string | undefined) = undefined, property: {} = {}) {
+    constructor(tag: tagEnum, property: {} = {}, content: (string|undefined) = undefined) {
         this.tag = this.caseAssertion(tag);
         this.content = content;
         this.property = property;
@@ -114,11 +165,15 @@ class HTMLTag {
                 return "";
             case tagEnum.plain_text:
                 return "<div>";
-            case tagEnum.unordered_list_start:
+            case tagEnum.plain_text_begin:
+                return "<div>"
+            case tagEnum.plain_text_end:
+                return "</div>"
+            case tagEnum.unordered_list_begin:
                 return "<ul>";
             case tagEnum.unordered_list_end:
                 return "</ul>";
-            case tagEnum.list_start:
+            case tagEnum.list_begin:
                 return "<li>";
             case tagEnum.list_end:
                 return "</li>";
@@ -128,9 +183,9 @@ class HTMLTag {
     }
 
     toString() {
-        if (this.content == undefined)
+        if (this.content == undefined) {
             return this.tag
-        else
-            return this.tag + this.content + this.tag
+        }
+        return this.tag + this.content + this.tag
     }
 }

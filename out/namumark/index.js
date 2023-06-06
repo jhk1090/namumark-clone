@@ -29,6 +29,7 @@ class NamuMark {
     }
     listProcessor(wikiText, pos, setPos) {
         let listArray = [];
+        let fullArray = [];
         let position = pos;
         let loop = true;
         let eol = (0, seekEOL_1.default)(wikiText, position);
@@ -49,10 +50,18 @@ class NamuMark {
                 text = wikiText.substring(position, eol);
             }
         }
+        for (const [index, element] of listArray.entries()) {
+            const indent = element.property.indent;
+            if (indent == 1) {
+                fullArray.push(element);
+            }
+            else {
+            }
+        }
         setPos(position);
     }
     listParser(text, indent) {
-        let listArray = [];
+        let listArray;
         let matchedRegex = /^(\*|1\.|A\.|a\.|I\.|i\.)([^\n]+)/g;
         let listPrefix = "";
         let listContent = "";
@@ -62,11 +71,7 @@ class NamuMark {
             listContent = match[2].trim();
             break;
         }
-        listArray.push(new HTMLTag(tagEnum.unordered_list_start, undefined, { indent }));
-        listArray.push(new HTMLTag(tagEnum.list_start, undefined, { indent }));
-        listArray.push(new HTMLTag(tagEnum.text, listContent, { indent }));
-        listArray.push(new HTMLTag(tagEnum.list_end, undefined, { indent }));
-        listArray.push(new HTMLTag(tagEnum.unordered_list_end, undefined, { indent }));
+        listArray = new HTMLTag(tagEnum.text, { indent }, listContent);
         return listArray;
     }
     arrayToHtmlString() {
@@ -85,16 +90,15 @@ var tagEnum;
 (function (tagEnum) {
     tagEnum[tagEnum["text"] = 0] = "text";
     tagEnum[tagEnum["plain_text"] = 1] = "plain_text";
-    tagEnum[tagEnum["unordered_list_start"] = 2] = "unordered_list_start";
-    tagEnum[tagEnum["unordered_list_end"] = 3] = "unordered_list_end";
-    tagEnum[tagEnum["list_start"] = 4] = "list_start";
-    tagEnum[tagEnum["list_end"] = 5] = "list_end";
+    tagEnum[tagEnum["unordered_list"] = 2] = "unordered_list";
+    tagEnum[tagEnum["list"] = 3] = "list";
 })(tagEnum || (tagEnum = {}));
 class HTMLTag {
     tag;
     content;
     property;
-    constructor(tag, content = undefined, property = {}) {
+    children;
+    constructor(tag, property = {}, content = "") {
         this.tag = this.caseAssertion(tag);
         this.content = content;
         this.property = property;
@@ -105,23 +109,23 @@ class HTMLTag {
                 return "";
             case tagEnum.plain_text:
                 return "<div>";
-            case tagEnum.unordered_list_start:
+            case tagEnum.unordered_list:
                 return "<ul>";
-            case tagEnum.unordered_list_end:
-                return "</ul>";
-            case tagEnum.list_start:
+            case tagEnum.list:
                 return "<li>";
-            case tagEnum.list_end:
-                return "</li>";
             default:
                 return "";
         }
     }
     toString() {
-        if (this.content == undefined)
-            return this.tag;
-        else
-            return this.tag + this.content + this.tag;
+        let childrenToString = "";
+        if (this.children.length != 0)
+            childrenToString = this.children.map(v => v.toString()).reduce((prev, cur) => prev + cur);
+        return this.tag + this.content + childrenToString + this.tag;
+    }
+    addChildren(children) {
+        this.children.push(children);
+        return children;
     }
 }
 //# sourceMappingURL=index.js.map
