@@ -1,23 +1,24 @@
 {
     "compilerOptions": {
-        "declaration": true,
+        // "declaration": true,
         "module": "CommonJS",
-        "target": "ES2022",
-        "outDir": "out",
-        "removeComments": true,
+        "target": "ES2016",
+        "outDir": "./out",
+        "rootDir": "./src",
+        // "removeComments": true,
         "noImplicitAny": true,
         "sourceMap": true,
-        "inlineSources": true,
+        // "inlineSources": true,
         // "isolatedModules": false,
         // "allowSyntheticDefaultImports": true,
         // "allowUmdGlobalAccess": true, // For D3.js
         "moduleResolution": "node",
-        "experimentalDecorators": true,
+        // "experimentalDecorators": true,
         "strictNullChecks": true,
         "alwaysStrict": true,
-        "lib": ["ES2020", "dom"]
+        "lib": ["ES2023", "dom"]
     },
     "compileOnSave": true,
-    "include": ["**/*.ts"],
+    "include": ["**/*"],
     "exclude": ["node_modules", "**/*.d.ts"]
 }

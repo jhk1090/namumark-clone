@@ -15,14 +15,11 @@ export class NamuMark {
             for (let pos=0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos]
                 if (now == " ") {
-                    this.listProcessor(this.wikiText, pos, v => pos = v)
-                }
-                if (this.wikiText.substring(pos, pos + 1) == "\n") {
-                    pos++;
-                    continue;
+                    this.htmlArray.push(...this.listProcessor(this.wikiText, pos, v => pos = v))
                 }
             }
         }
+        
 
         return this.arrayToHtmlString();
 
@@ -37,17 +34,17 @@ export class NamuMark {
         let eol = seekEOL(wikiText, position)
         let text = wikiText.substring(position, eol);
         let indent = 1;
-        const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./;
+        const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./g;
         while (loop) {
-            if (!indentRegex.test(text)) {
+            if (!(indentRegex.test(text))) {
                 loop = false;
             }
             for (const match of text.matchAll(indentRegex)) {
                 indent = match[1].length
             }
-            listArray.push(this.listParser(wikiText, indent))
+            listArray.push(this.listParser(text, indent))
+            position = eol + 1;
             if (eol < wikiText.substring(pos).length) {
-                position = eol + 2;
                 eol = seekEOL(wikiText, position)
                 text = wikiText.substring(position, eol);
             }
@@ -55,23 +52,54 @@ export class NamuMark {
 
         for (const [index, element] of listArray.entries()) {
             const indent = element.property.indent
+            if (index == 0 && indent != 1) {
+                fullArray.push(
+                    new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+                    new HTMLTag(tagEnum.plain_text_begin, {indent}),
+                )
+                for(let i=0; i < indent - 1; i++) {
+                    fullArray.push(
+                        new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+                        new HTMLTag(tagEnum.list_begin, {indent}),
+                    )
+                }
+                fullArray.push(element)
+                fullArray.push(["locate", indent, indent])
+                for(let i=0; i < indent - 1; i++) {
+                    fullArray.push(
+                        new HTMLTag(tagEnum.list_end, {indent}),
+                        ["locate", indent, indent - i - 1],
+                        new HTMLTag(tagEnum.unordered_list_end, {indent})
+                    )
+                }
+                fullArray.push(
+                    new HTMLTag(tagEnum.plain_text_end, {indent}),
+                    ["locate", indent, indent - indent],
+                    new HTMLTag(tagEnum.unordered_list_end, {indent})
+                )
+            }
+
+            // 최상위
             if (indent == 1) {
                 fullArray.push(new HTMLTag(tagEnum.unordered_list_begin, {indent}))
                 fullArray.push(new HTMLTag(tagEnum.list_begin, {indent}))
                 fullArray.push(element)
-                fullArray.push(undefined)
+                // ["locate", indent, indent] => [구별자, 마지막 여백 수, 지금 여백 수]
+                fullArray.push(["locate", indent, indent])
                 fullArray.push(new HTMLTag(tagEnum.list_end, {indent}))
                 fullArray.push(new HTMLTag(tagEnum.unordered_list_end, {indent}))
             } else {
-                if (indent > (fullArray[fullArray.length - 1] as HTMLTag).property.indent) {
-                    let indentDifference = Math.abs(indent - (fullArray[fullArray.length - 1] as HTMLTag).property.indent)
-                    let lastUndefined = fullArray.lastIndexOf(undefined);
+                let lastIndent = (fullArray[fullArray.length - 1] as HTMLTag).property.indent
+                let lastLocate = fullArray.findLastIndex(elem => (!(elem instanceof HTMLTag)))
+                // 지금 여백 수 > 마지막 여백 수 
+                if (indent > lastIndent) {
+                    let indentDifference = Math.abs(indent - lastIndent)
                     if (indentDifference == 1) {
-                        fullArray.splice(lastUndefined, 1, ...[
+                        fullArray.splice(lastLocate, 1, ...[
                             new HTMLTag(tagEnum.unordered_list_begin, {indent}),
                             new HTMLTag(tagEnum.list_begin, {indent}),
                             element,
-                            undefined,
+                            ["locate", indent, indent],
                             new HTMLTag(tagEnum.list_end, {indent}),
                             new HTMLTag(tagEnum.unordered_list_end, {indent})
                         ])
@@ -88,24 +116,30 @@ export class NamuMark {
                             )
                         }
                         es.push(element)
-                        es.push(undefined)
+                        es.push(["locate", indent, indent])
                         for(let i=0; i < indentDifference - 1; i++) {
                             es.push(
                                 new HTMLTag(tagEnum.list_end, {indent}),
+                                ["locate", indent, indent - i - 1],
                                 new HTMLTag(tagEnum.unordered_list_end, {indent})
                             )
                         }
                         es.push(
                             new HTMLTag(tagEnum.plain_text_end, {indent}),
+                            ["locate", indent, indent - indentDifference],
                             new HTMLTag(tagEnum.unordered_list_end, {indent})
                         )
-                        fullArray.splice(lastUndefined, 1, ...es);
+                        fullArray.splice(lastLocate, 1, ...es);
                     }
+                } else if (indent <= lastIndent) {
+                    fullArray.splice(lastLocate, 1, ...[element, ["locate", indent, indent]])
                 }
-                "<ul> <li> <div>Hello</div> <ul> <div> <ul> <li> <div>333</div> </li> </ul> </div> <li> <div>222</div> </li> </ul> </li> </ul>"
             }
         }
+        fullArray = fullArray.filter((v) => v[0] != "locate") as HTMLTag[];
+        console.log(position, wikiText[position])
         setPos(position);
+        return fullArray
     }
 
     listParser(text: string, indent: number) {
@@ -113,8 +147,8 @@ export class NamuMark {
         let matchedRegex = /^(\*|1\.|A\.|a\.|I\.|i\.)([^\n]+)/g
         let listPrefix = "";
         let listContent = "";
-        for (const match of text.substring(1).matchAll(matchedRegex)) {
-            console.log(match);
+        text = text.trim();
+        for (const match of text.matchAll(matchedRegex)) {
             listPrefix = match[1];
             listContent = match[2].trim();
             break;
