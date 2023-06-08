@@ -36,10 +36,12 @@ export class NamuMark {
         let indent = 1;
         const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./g;
         while (loop) {
+            let matched = text.matchAll(indentRegex);
+
             if (!(indentRegex.test(text))) {
                 loop = false;
             }
-            for (const match of text.matchAll(indentRegex)) {
+            for (const match of matched) {
                 indent = match[1].length
             }
             listArray.push(this.listParser(text, indent))
