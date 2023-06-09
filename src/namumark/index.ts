@@ -12,10 +12,47 @@ export class NamuMark {
         if (this.wikiText.startsWith("#redirect")) {
             this.htmlArray.push(new HTMLTag(tagEnum.plain_text, this.wikiText));
         } else {
+            let line = true;
+            let plain = true;
+            let plainTag: (HTMLTag[] | undefined) = undefined;
+            const plainFalsify = () => {
+                plain = false;
+                if (plainTag != undefined) {
+                    plainTag.push(new HTMLTag(tagEnum.plain_text_end))
+                    this.htmlArray.push(...plainTag as HTMLTag[])
+                    plainTag = undefined;
+                }
+            }
+
             for (let pos=0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos]
-                if (now == " ") {
+                plain = true;
+
+                if (now == " " && line) {
+                    plainFalsify();
+                    this.htmlArray.push(new HTMLTag(tagEnum.plain_text_begin))
                     this.htmlArray.push(...this.listProcessor(this.wikiText, pos, v => pos = v))
+                    this.htmlArray.push(new HTMLTag(tagEnum.plain_text_end))
+                }
+
+                if (plain) {
+                    if (plainTag == undefined) {
+                        plainTag = []
+                        plainTag.push(new HTMLTag(tagEnum.plain_text_begin))    
+                    }
+
+                    if (now == "\n") {
+                        plainTag.push(new HTMLTag(tagEnum.br))
+                    } else {
+                        plainTag.push(new HTMLTag(tagEnum.text, {}, now))
+                    }
+                }
+
+                // 라인 확인용
+                if (now == "\n") {
+                    line = true;
+                } else {
+                    line = false;
                 }
             }
         }
@@ -34,21 +71,25 @@ export class NamuMark {
         let eol = seekEOL(wikiText, position)
         let text = wikiText.substring(position, eol);
         let indent = 1;
-        const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./g;
+        const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./;
         while (loop) {
-            let matched = text.matchAll(indentRegex);
-
             if (!(indentRegex.test(text))) {
                 loop = false;
+                break;
             }
-            for (const match of matched) {
-                indent = match[1].length
-            }
+
+            indentRegex.lastIndex = 0;
+            let matched = text.match(indentRegex) as RegExpMatchArray;
+            indent = matched[1].length;
+            
+
             listArray.push(this.listParser(text, indent))
             position = eol + 1;
             if (eol < wikiText.substring(pos).length) {
                 eol = seekEOL(wikiText, position)
                 text = wikiText.substring(position, eol);
+            } else {
+                loop = false;
             }
         }
 
@@ -140,7 +181,7 @@ export class NamuMark {
         }
         fullArray = fullArray.filter((v) => v[0] != "locate") as HTMLTag[];
         console.log(position, wikiText[position])
-        setPos(position);
+        setPos(position - 1);
         return fullArray
     }
 
@@ -181,11 +222,12 @@ enum tagEnum {
     unordered_list_begin,
     unordered_list_end,
     list_begin,
-    list_end
+    list_end,
+    br
 }
 
 class HTMLTag {
-    tag: string;
+    tag: string[];
     content: (string | undefined);
     property: {[k: string]: any};
 
@@ -198,30 +240,33 @@ class HTMLTag {
     caseAssertion(tag: tagEnum) {
         switch (tag) {
             case tagEnum.text:
-                return "";
+                return ["", ""];
             case tagEnum.plain_text:
-                return "<div>";
+                return ["<div>", "</div>"];
             case tagEnum.plain_text_begin:
-                return "<div>"
+                return ["<div>"];
             case tagEnum.plain_text_end:
-                return "</div>"
+                return ["</div>"]
             case tagEnum.unordered_list_begin:
-                return "<ul>";
+                return ["<ul>"]
             case tagEnum.unordered_list_end:
-                return "</ul>";
+                return ["</ul>"]
             case tagEnum.list_begin:
-                return "<li>";
+                return ["<li>"]
             case tagEnum.list_end:
-                return "</li>";
+                return ["</li>"]
+            case tagEnum.br:
+                return ["<br/>"]
             default:
-                return "";
+                return ["", ""];
         }
     }
 
     toString() {
         if (this.content == undefined) {
-            return this.tag
+            return this.tag[0]
+        } else {
+            return this.tag[0] + this.content + this.tag[1]
         }
-        return this.tag + this.content + this.tag
     }
 }
