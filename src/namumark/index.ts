@@ -93,6 +93,14 @@ export class NamuMark {
             }
         }
 
+        /* TODO 
+        <ul>
+            <li></li>
+            <li></li>
+            <li></li>
+        </ul>
+        꼴로 된 트리뷰 구현하기
+        */
         for (const [index, element] of listArray.entries()) {
             const indent = element.property.indent
             if (index == 0 && indent != 1) {
@@ -149,7 +157,7 @@ export class NamuMark {
                     } else {
                         let es: any[] = []
                         es.push(
-                            new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+                            // new HTMLTag(tagEnum.unordered_list_begin, {indent}),
                             new HTMLTag(tagEnum.plain_text_begin, {indent}),
                         )
                         for(let i=0; i < indentDifference - 1; i++) {
@@ -168,7 +176,7 @@ export class NamuMark {
                             )
                         }
                         es.push(
-                            new HTMLTag(tagEnum.plain_text_end, {indent}),
+                            // new HTMLTag(tagEnum.plain_text_end, {indent}),
                             ["locate", indent, indent - indentDifference],
                             new HTMLTag(tagEnum.unordered_list_end, {indent})
                         )
