@@ -4,6 +4,7 @@
 
 # 구조
 ```typescript
+// main.ts
 import { NamuMark } from "./namumark";
 
 const mark = new NamuMark("== 문법 ==")
@@ -15,12 +16,16 @@ const parsedText = mark.parse()
 
 
 # TODO
- * ListParser의 2단계 -> 1단계 수정하기
- * TableParser 예정
- * TextParser 예정
+ * 리팩토링 중 - bracket 기능 완성하기 (#!shebang, 글자 크기, syntax highlighting)
+ * tableProcessor, tableParser 제작하기
+ * tocProcessor 제작하기
+ * listProcessor, listParser 제작하기
 
 # Typescript 컴파일링
- * tsc -w -> 컴파일 시 out 디렉토리가 생성됨
- * node out/main -> 컴파일 후 생성된 out/main.js를 실행
+```bash
+$ npm run compile # typescript 컴파일 후 out 디렉토리가 생성됨
+$ npm run output # 컴파일 후 생성된 out/main.js를 실행
+```
+
  * view.html에 파싱 결과가 표시
  
