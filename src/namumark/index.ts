@@ -125,6 +125,22 @@ export class NamuMark {
                     }
                 }
 
+                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == true) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_begin, {originalText: "{{{", isClosed: false}))
+                    this.bracketQueue.push(tagEnum.code_innerbracket_begin)
+                    pos += 2;
+                    continue;
+                }
+
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin && this.flags.code == true) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
+                    this.htmlArray[idx].property.isClosed = true;
+                    this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_end, { originalText: "}}}" }));
+                    this.bracketQueue.pop();
+                    pos += 2;
+                    continue;
+                }
+
                 if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.text_sizing_begin && this.flags.code == false) {
                     const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
                     this.htmlArray[idx].property.isClosed = true;
@@ -221,6 +237,10 @@ export class NamuMark {
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));        
                 } else if (queue == tagEnum.wiki_style_begin) {
                     const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
+                    const text = this.htmlArray[idx].property.originalText;
+                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+                } else if (queue == tagEnum.code_innerbracket_begin) {
+                    const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 }
@@ -506,6 +526,8 @@ enum tagEnum {
     text_sizing_end,
     wiki_style_begin,
     wiki_style_end,
+    code_innerbracket_begin,
+    code_innerbracket_end,
     br,
 }
 
@@ -597,6 +619,10 @@ class HTMLTag {
                 return ["<div@>"]
             case tagEnum.wiki_style_end:
                 return ["</div>"]
+            case tagEnum.code_innerbracket_begin:
+                return ["{{{"]
+            case tagEnum.code_innerbracket_end:
+                return ["}}}"]
             case tagEnum.br:
                 return ["<br@/>"];
             default:
