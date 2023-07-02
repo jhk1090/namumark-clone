@@ -225,153 +225,153 @@ export class NamuMark {
         return;
     }
 
-    listProcessor(wikiText: string, pos: number, setPos: (v: number)=>number) {
-        let listArray: HTMLTag[] = [];
-        let fullArray: any[] = [];
-        let position = pos;
-        // EOL 뒤에 텍스트가 있는지 여부
-        let loop = true;
-        let eol = seekEOL(wikiText, position)
-        let text = wikiText.substring(position, eol);
-        let indent = 1;
-        const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./;
-        while (loop) {
-            if (!(indentRegex.test(text))) {
-                loop = false;
-                break;
-            }
+    // listProcessor(wikiText: string, pos: number, setPos: (v: number)=>number) {
+    //     let listArray: HTMLTag[] = [];
+    //     let fullArray: any[] = [];
+    //     let position = pos;
+    //     // EOL 뒤에 텍스트가 있는지 여부
+    //     let loop = true;
+    //     let eol = seekEOL(wikiText, position)
+    //     let text = wikiText.substring(position, eol);
+    //     let indent = 1;
+    //     const indentRegex = /^(\s+)\*|1\.|A\.|a\.|I\.|i\./;
+    //     while (loop) {
+    //         if (!(indentRegex.test(text))) {
+    //             loop = false;
+    //             break;
+    //         }
 
-            indentRegex.lastIndex = 0;
-            let matched = text.match(indentRegex) as RegExpMatchArray;
-            indent = matched[1].length;
+    //         indentRegex.lastIndex = 0;
+    //         let matched = text.match(indentRegex) as RegExpMatchArray;
+    //         indent = matched[1].length;
             
 
-            listArray.push(this.listParser(text, indent))
-            position = eol + 1;
-            if (eol < wikiText.substring(pos).length) {
-                eol = seekEOL(wikiText, position)
-                text = wikiText.substring(position, eol);
-            } else {
-                loop = false;
-            }
-        }
+    //         listArray.push(this.listParser(text, indent))
+    //         position = eol + 1;
+    //         if (eol < wikiText.substring(pos).length) {
+    //             eol = seekEOL(wikiText, position)
+    //             text = wikiText.substring(position, eol);
+    //         } else {
+    //             loop = false;
+    //         }
+    //     }
 
-        /* TODO 
-        <ul>
-            <li></li>
-            <li></li>
-            <li></li>
-        </ul>
-        꼴로 된 트리뷰 구현하기
-        */
-        for (const [index, element] of listArray.entries()) {
-            const indent = element.property.indent
-            if (index == 0 && indent != 1) {
-                fullArray.push(
-                    new HTMLTag(tagEnum.unordered_list_begin, {indent}),
-                    new HTMLTag(tagEnum.plain_text_begin, {indent}),
-                )
-                for(let i=0; i < indent - 1; i++) {
-                    fullArray.push(
-                        new HTMLTag(tagEnum.unordered_list_begin, {indent}),
-                        new HTMLTag(tagEnum.list_begin, {indent}),
-                    )
-                }
-                fullArray.push(element)
-                fullArray.push(["locate", indent, indent])
-                for(let i=0; i < indent - 1; i++) {
-                    fullArray.push(
-                        new HTMLTag(tagEnum.list_end, {indent}),
-                        ["locate", indent, indent - i - 1],
-                        new HTMLTag(tagEnum.unordered_list_end, {indent})
-                    )
-                }
-                fullArray.push(
-                    new HTMLTag(tagEnum.plain_text_end, {indent}),
-                    ["locate", indent, indent - indent],
-                    new HTMLTag(tagEnum.unordered_list_end, {indent})
-                )
-            }
+    //     /* TODO 
+    //     <ul>
+    //         <li></li>
+    //         <li></li>
+    //         <li></li>
+    //     </ul>
+    //     꼴로 된 트리뷰 구현하기
+    //     */
+    //     for (const [index, element] of listArray.entries()) {
+    //         const indent = element.property.indent
+    //         if (index == 0 && indent != 1) {
+    //             fullArray.push(
+    //                 new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+    //                 new HTMLTag(tagEnum.plain_text_begin, {indent}),
+    //             )
+    //             for(let i=0; i < indent - 1; i++) {
+    //                 fullArray.push(
+    //                     new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+    //                     new HTMLTag(tagEnum.list_begin, {indent}),
+    //                 )
+    //             }
+    //             fullArray.push(element)
+    //             fullArray.push(["locate", indent, indent])
+    //             for(let i=0; i < indent - 1; i++) {
+    //                 fullArray.push(
+    //                     new HTMLTag(tagEnum.list_end, {indent}),
+    //                     ["locate", indent, indent - i - 1],
+    //                     new HTMLTag(tagEnum.unordered_list_end, {indent})
+    //                 )
+    //             }
+    //             fullArray.push(
+    //                 new HTMLTag(tagEnum.plain_text_end, {indent}),
+    //                 ["locate", indent, indent - indent],
+    //                 new HTMLTag(tagEnum.unordered_list_end, {indent})
+    //             )
+    //         }
 
-            // 최상위
-            if (indent == 1) {
-                fullArray.push(new HTMLTag(tagEnum.unordered_list_begin, {indent}))
-                fullArray.push(new HTMLTag(tagEnum.list_begin, {indent}))
-                fullArray.push(element)
-                // ["locate", indent, indent] => [구별자, 마지막 여백 수, 지금 여백 수]
-                fullArray.push(["locate", indent, indent])
-                fullArray.push(new HTMLTag(tagEnum.list_end, {indent}))
-                fullArray.push(new HTMLTag(tagEnum.unordered_list_end, {indent}))
-            } else {
-                let lastIndent = (fullArray[fullArray.length - 1] as HTMLTag).property.indent
-                let lastLocate = fullArray.findLastIndex(elem => (!(elem instanceof HTMLTag)))
-                // 지금 여백 수 > 마지막 여백 수 
-                if (indent > lastIndent) {
-                    let indentDifference = Math.abs(indent - lastIndent)
-                    if (indentDifference == 1) {
-                        fullArray.splice(lastLocate, 1, ...[
-                            new HTMLTag(tagEnum.unordered_list_begin, {indent}),
-                            new HTMLTag(tagEnum.list_begin, {indent}),
-                            element,
-                            ["locate", indent, indent],
-                            new HTMLTag(tagEnum.list_end, {indent}),
-                            new HTMLTag(tagEnum.unordered_list_end, {indent})
-                        ])
-                    } else {
-                        let es: any[] = []
-                        es.push(
-                            // new HTMLTag(tagEnum.unordered_list_begin, {indent}),
-                            new HTMLTag(tagEnum.plain_text_begin, {indent}),
-                        )
-                        for(let i=0; i < indentDifference - 1; i++) {
-                            es.push(
-                                new HTMLTag(tagEnum.unordered_list_begin, {indent}),
-                                new HTMLTag(tagEnum.list_begin, {indent}),
-                            )
-                        }
-                        es.push(element)
-                        es.push(["locate", indent, indent])
-                        for(let i=0; i < indentDifference - 1; i++) {
-                            es.push(
-                                new HTMLTag(tagEnum.list_end, {indent}),
-                                ["locate", indent, indent - i - 1],
-                                new HTMLTag(tagEnum.unordered_list_end, {indent})
-                            )
-                        }
-                        es.push(
-                            // new HTMLTag(tagEnum.plain_text_end, {indent}),
-                            ["locate", indent, indent - indentDifference],
-                            new HTMLTag(tagEnum.unordered_list_end, {indent})
-                        )
-                        fullArray.splice(lastLocate, 1, ...es);
-                    }
-                } else if (indent <= lastIndent) {
-                    fullArray.splice(lastLocate, 1, ...[element, ["locate", indent, indent]])
-                }
-            }
-        }
-        fullArray = fullArray.filter((v) => v[0] != "locate") as HTMLTag[];
-        console.log(position, wikiText[position])
-        setPos(position - 1);
-        return fullArray
-    }
+    //         // 최상위
+    //         if (indent == 1) {
+    //             fullArray.push(new HTMLTag(tagEnum.unordered_list_begin, {indent}))
+    //             fullArray.push(new HTMLTag(tagEnum.list_begin, {indent}))
+    //             fullArray.push(element)
+    //             // ["locate", indent, indent] => [구별자, 마지막 여백 수, 지금 여백 수]
+    //             fullArray.push(["locate", indent, indent])
+    //             fullArray.push(new HTMLTag(tagEnum.list_end, {indent}))
+    //             fullArray.push(new HTMLTag(tagEnum.unordered_list_end, {indent}))
+    //         } else {
+    //             let lastIndent = (fullArray[fullArray.length - 1] as HTMLTag).property.indent
+    //             let lastLocate = fullArray.findLastIndex(elem => (!(elem instanceof HTMLTag)))
+    //             // 지금 여백 수 > 마지막 여백 수 
+    //             if (indent > lastIndent) {
+    //                 let indentDifference = Math.abs(indent - lastIndent)
+    //                 if (indentDifference == 1) {
+    //                     fullArray.splice(lastLocate, 1, ...[
+    //                         new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+    //                         new HTMLTag(tagEnum.list_begin, {indent}),
+    //                         element,
+    //                         ["locate", indent, indent],
+    //                         new HTMLTag(tagEnum.list_end, {indent}),
+    //                         new HTMLTag(tagEnum.unordered_list_end, {indent})
+    //                     ])
+    //                 } else {
+    //                     let es: any[] = []
+    //                     es.push(
+    //                         // new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+    //                         new HTMLTag(tagEnum.plain_text_begin, {indent}),
+    //                     )
+    //                     for(let i=0; i < indentDifference - 1; i++) {
+    //                         es.push(
+    //                             new HTMLTag(tagEnum.unordered_list_begin, {indent}),
+    //                             new HTMLTag(tagEnum.list_begin, {indent}),
+    //                         )
+    //                     }
+    //                     es.push(element)
+    //                     es.push(["locate", indent, indent])
+    //                     for(let i=0; i < indentDifference - 1; i++) {
+    //                         es.push(
+    //                             new HTMLTag(tagEnum.list_end, {indent}),
+    //                             ["locate", indent, indent - i - 1],
+    //                             new HTMLTag(tagEnum.unordered_list_end, {indent})
+    //                         )
+    //                     }
+    //                     es.push(
+    //                         // new HTMLTag(tagEnum.plain_text_end, {indent}),
+    //                         ["locate", indent, indent - indentDifference],
+    //                         new HTMLTag(tagEnum.unordered_list_end, {indent})
+    //                     )
+    //                     fullArray.splice(lastLocate, 1, ...es);
+    //                 }
+    //             } else if (indent <= lastIndent) {
+    //                 fullArray.splice(lastLocate, 1, ...[element, ["locate", indent, indent]])
+    //             }
+    //         }
+    //     }
+    //     fullArray = fullArray.filter((v) => v[0] != "locate") as HTMLTag[];
+    //     console.log(position, wikiText[position])
+    //     setPos(position - 1);
+    //     return fullArray
+    // }
 
-    listParser(text: string, indent: number) {
-        let tag: HTMLTag;
-        let matchedRegex = /^(\*|1\.|A\.|a\.|I\.|i\.)([^\n]+)/g
-        let listPrefix = "";
-        let listContent = "";
-        text = text.trim();
-        for (const match of text.matchAll(matchedRegex)) {
-            listPrefix = match[1];
-            listContent = match[2].trim();
-            break;
-        }
+    // listParser(text: string, indent: number) {
+    //     let tag: HTMLTag;
+    //     let matchedRegex = /^(\*|1\.|A\.|a\.|I\.|i\.)([^\n]+)/g
+    //     let listPrefix = "";
+    //     let listContent = "";
+    //     text = text.trim();
+    //     for (const match of text.matchAll(matchedRegex)) {
+    //         listPrefix = match[1];
+    //         listContent = match[2].trim();
+    //         break;
+    //     }
 
-        tag = new HTMLTag(tagEnum.plain_text, {indent}, listContent)
+    //     tag = new HTMLTag(tagEnum.plain_text, {indent}, listContent)
         
-        return tag;
-    }
+    //     return tag;
+    // }
 
     arrayToHtmlString() {
         const documentStructure = ["<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Document</title>\n<link rel=\"stylesheet\" href=\"viewStyle.css\">\n</head>\n<body>", "</body>\n</html>"]
