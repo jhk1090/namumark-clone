@@ -11,8 +11,9 @@ export class NamuMark {
         underline: boolean,
         superscript: boolean,
         subscript: boolean,
-        bracket: boolean,
-        bracket_multiline: boolean
+        code: boolean,
+        code_multiline: boolean,
+        text_sizing: number,
     };
     textToken: string[];
     wt_end: boolean;
@@ -30,8 +31,9 @@ export class NamuMark {
             underline: false,
             superscript: false,
             subscript: false,
-            bracket: false,
-            bracket_multiline: false,
+            code: false,
+            code_multiline: false,
+            text_sizing: 0
         };
     }
 
@@ -53,30 +55,54 @@ export class NamuMark {
                         strike_wave: false,
                         underline: false,
                         superscript: false,
-                        subscript: false,
+                        subscript: false
                     };
                     continue;
                 }
 
-                if (this.textToken.some(text => this.wikiText.substring(pos).startsWith(text)) && this.flags.bracket == false) {
+                if (this.textToken.some(text => this.wikiText.substring(pos).startsWith(text)) && this.flags.code == false) {
                     this.textProcessor(pos, v => pos = v)
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.bracket == false) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.bracket_begin, {originalText: "{{{"}))
-                    this.flags.bracket = true;
+                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == false) {
+                    const regexWithSpace = /^(\+|-)[1-5] /
+                    const regexWithNewline = /^(\+|-)[1-5]\n/
+                    if (regexWithSpace.test(this.wikiText.substring(pos + 3))) {
+                        this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_begin, {originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 7)}))
+                        this.flags.text_sizing += 1;
+                        // {{{+2 \n
+                        pos += 5;
+                        continue;
+                    }
+                    else if (regexWithNewline.test(this.wikiText.substring(pos + 3))) {
+                        this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_begin, {originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6)}))
+                        this.flags.text_sizing += 1;
+                        // {{{+2\n  
+                        pos += 4;
+                        continue;
+                    } else {
+                        this.htmlArray.push(new HTMLTag(tagEnum.code_begin, {originalText: "{{{"}))
+                        this.flags.code = true;
+                        pos += 2;
+                        continue;
+                    }
+                }
+
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.code == true) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.code_end, {originalText: "}}}"}))
+                    this.flags.code = false;
+                    if (this.flags.code_multiline) {
+                        this.htmlArray.push(new HTMLTag(tagEnum.code_multiline_end));
+                        this.flags.code_multiline = false;
+                    }
                     pos += 2;
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.bracket == true) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.bracket_end, {originalText: "}}}"}))
-                    this.flags.bracket = false;
-                    if (this.flags.bracket_multiline) {
-                        this.htmlArray.push(new HTMLTag(tagEnum.bracket_multiline_end));
-                        this.flags.bracket_multiline = false;
-                    }
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.text_sizing != 0 && this.flags.code == false) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, {originalText: "}}}"}))
+                    this.flags.text_sizing -= 1;
                     pos += 2;
                     continue;
                 }
@@ -125,20 +151,25 @@ export class NamuMark {
             const text = this.htmlArray[idx].property.originalText
             this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
         }
-        if (this.flags.bracket && !isWikiTextEnd && !this.flags.bracket_multiline) {
-            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.bracket_begin);
+        if (this.flags.code && !isWikiTextEnd && !this.flags.code_multiline) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.code_begin);
             const text = this.htmlArray[idx]
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.bracket_multiline_begin), text)
-            this.flags.bracket_multiline = true;
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.code_multiline_begin), text)
+            this.flags.code_multiline = true;
         }
-        if (this.flags.bracket && isWikiTextEnd) {
-            const idx_code = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.bracket_begin);
+        if (this.flags.code && isWikiTextEnd) {
+            const idx_code = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.code_begin);
             const text = this.htmlArray[idx_code].property.originalText
             this.htmlArray.splice(idx_code, 1, new HTMLTag(tagEnum.text, {}, text))
-            if (this.flags.bracket_multiline) {
-                const idx_pre = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.bracket_multiline_begin);
+            if (this.flags.code_multiline) {
+                const idx_pre = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.code_multiline_begin);
                 this.htmlArray.splice(idx_pre, 1)
             }
+        }
+        if (this.flags.text_sizing && isWikiTextEnd) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.text_sizing_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
         }
     }
     textProcessor(pos: number, setPos: (v: number) => void) {
@@ -410,10 +441,12 @@ enum tagEnum {
     superscript_end,
     subscript_begin,
     subscript_end,
-    bracket_begin,
-    bracket_end,
-    bracket_multiline_begin,
-    bracket_multiline_end,
+    code_begin,
+    code_end,
+    code_multiline_begin,
+    code_multiline_end,
+    text_sizing_begin,
+    text_sizing_end,
     br
 }
 
@@ -478,14 +511,18 @@ class HTMLTag {
                 return ["<li>"]
             case tagEnum.list_end:
                 return ["</li>"]
-            case tagEnum.bracket_begin:
+            case tagEnum.code_begin:
                 return ["<code>"]
-            case tagEnum.bracket_end:
+            case tagEnum.code_end:
                 return ["</code>"]
-            case tagEnum.bracket_multiline_begin:
+            case tagEnum.code_multiline_begin:
                 return ["<pre>"]
-            case tagEnum.bracket_multiline_end:
+            case tagEnum.code_multiline_end:
                 return ["</pre>"]
+            case tagEnum.text_sizing_begin:
+                return ["<span>"]
+            case tagEnum.text_sizing_end:
+                return ["</span>"]
             case tagEnum.br:
                 return ["<br/>"]
             default:
