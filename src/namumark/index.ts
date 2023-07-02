@@ -3,63 +3,195 @@ import seekEOL from "./seekEOL";
 export class NamuMark {
     wikiText: string;
     htmlArray: HTMLTag[];
+    flags: {
+        strong: boolean,
+        italic: boolean,
+        strike_underbar: boolean,
+        strike_wave: boolean,
+        underline: boolean,
+        superscript: boolean,
+        subscript: boolean,
+        bracket: boolean,
+    };
+    textToken: string[];
+    wt_end: boolean;
+
     constructor(wikiText: string, options=undefined) {
         this.wikiText = wikiText;
         this.htmlArray = [];
+        // this.textTokenSyntax = ([] as string[]).concat(...Object.values(this.textToken))
+        this.textToken = ["'''", "''", "--", "~~", "__", "^^", ",,"];
+        this.flags = {
+            strong: false,
+            italic: false,
+            strike_underbar: false,
+            strike_wave: false,
+            underline: false,
+            superscript: false,
+            subscript: false,
+            bracket: false,
+        };
     }
 
     parse() {
         if (this.wikiText.startsWith("#redirect")) {
-            this.htmlArray.push(new HTMLTag(tagEnum.plain_text, this.wikiText));
+            this.htmlArray.push(new HTMLTag(tagEnum.plain_text, {}, this.wikiText));
         } else {
-            let line = true;
-            let plain = true;
-            let plainTag: (HTMLTag[] | undefined) = undefined;
-            const plainFalsify = () => {
-                plain = false;
-                if (plainTag != undefined) {
-                    plainTag.push(new HTMLTag(tagEnum.plain_text_end))
-                    this.htmlArray.push(...plainTag as HTMLTag[])
-                    plainTag = undefined;
-                }
-            }
-
             for (let pos=0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos]
-                plain = true;
-
-                if (now == " " && line) {
-                    plainFalsify();
-                    this.htmlArray.push(new HTMLTag(tagEnum.plain_text_begin))
-                    this.htmlArray.push(...this.listProcessor(this.wikiText, pos, v => pos = v))
-                    this.htmlArray.push(new HTMLTag(tagEnum.plain_text_end))
-                }
-
-                if (plain) {
-                    if (plainTag == undefined) {
-                        plainTag = []
-                        plainTag.push(new HTMLTag(tagEnum.plain_text_begin))    
-                    }
-
-                    if (now == "\n") {
-                        plainTag.push(new HTMLTag(tagEnum.br))
-                    } else {
-                        plainTag.push(new HTMLTag(tagEnum.text, {}, now))
-                    }
-                }
-
-                // 라인 확인용
+                
                 if (now == "\n") {
-                    line = true;
-                } else {
-                    line = false;
+                    this.htmlArray.push(new HTMLTag(tagEnum.br));
+                    this.textEndlineProcessor();
+                    this.flags = {
+                        ...this.flags,
+                        strong: false,
+                        italic: false,
+                        strike_underbar: false,
+                        strike_wave: false,
+                        underline: false,
+                        superscript: false,
+                        subscript: false
+                    };
+                    continue;
                 }
+
+                if (this.textToken.some(text => this.wikiText.substring(pos).startsWith(text))) {
+                    this.textProcessor(pos, v => pos = v)
+                    continue;
+                }
+
+                if (this.wikiText.substring(pos).startsWith("{{{")) {
+
+                }
+
+                this.htmlArray.push(new HTMLTag(tagEnum.text, {}, now))
             }
         }
-        
-
+        this.textEndlineProcessor();
         return this.arrayToHtmlString();
 
+    }
+
+    textEndlineProcessor() {
+        if (this.flags.strong) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.strong_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.strike_underbar) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.strike_underbar_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.strike_wave) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.strike_wave_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.italic) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.italic_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.underline) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.underline_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.superscript) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.superscript_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.subscript) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.subscript_begin);
+            const text = this.htmlArray[idx].property.originalText
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+    }
+    textProcessor(pos: number, setPos: (v: number) => void) {
+        const wikiTextSincePos = this.wikiText.substring(pos)
+        const matchedSyntax = this.textToken.find(text => wikiTextSincePos.startsWith(text))
+        let tag: tagEnum = tagEnum.holder;
+        let posIncrement: number = 0;
+        switch (matchedSyntax) {
+            case "'''":
+                if (this.flags.strong) {
+                    tag = tagEnum.strong_end
+                    this.flags.strong = false;
+                } else {
+                    tag = tagEnum.strong_begin
+                    this.flags.strong = true;
+                }
+                posIncrement = 2
+                break;
+            case "''":
+                if (this.flags.italic) {
+                    tag = tagEnum.italic_end
+                    this.flags.italic = false;
+                } else {
+                    tag = tagEnum.italic_begin
+                    this.flags.italic = true;
+                }
+                posIncrement = 1
+                break;
+            case "--":
+                if (this.flags.strike_underbar) {
+                    tag = tagEnum.strike_underbar_end
+                    this.flags.strike_underbar = false;
+                } else {
+                    tag = tagEnum.strike_underbar_begin
+                    this.flags.strike_underbar = true;
+                }
+                posIncrement = 1
+                break;
+            case "~~":
+                if (this.flags.strike_wave) {
+                    tag = tagEnum.strike_wave_end
+                    this.flags.strike_wave = false;
+                } else {
+                    tag = tagEnum.strike_wave_begin
+                    this.flags.strike_wave = true;
+                }
+                posIncrement = 1
+                break;
+            case "__":
+                if (this.flags.underline) {
+                    tag = tagEnum.underline_end
+                    this.flags.underline = false;
+                } else {
+                    tag = tagEnum.underline_begin
+                    this.flags.underline = true;
+                }
+                posIncrement = 1
+                break;
+            case "^^":
+                if (this.flags.superscript) {
+                    tag = tagEnum.superscript_end
+                    this.flags.superscript = false;
+                } else {
+                    tag = tagEnum.superscript_begin
+                    this.flags.superscript = true;
+                }
+                posIncrement = 1
+                break;
+            case ",,":
+                if (this.flags.subscript) {
+                    tag = tagEnum.subscript_end
+                    this.flags.subscript = false;
+                } else {
+                    tag = tagEnum.subscript_begin
+                    this.flags.subscript = true;
+                }
+                posIncrement = 1
+                break;
+            default:
+                break;
+        }
+        this.htmlArray.push(new HTMLTag(tag, {originalText: matchedSyntax}))
+        setPos(pos + posIncrement)
+        return;
     }
 
     listProcessor(wikiText: string, pos: number, setPos: (v: number)=>number) {
@@ -223,6 +355,7 @@ export class NamuMark {
 }
 
 enum tagEnum {
+    holder,
     text,
     plain_text,
     plain_text_end,
@@ -231,22 +364,40 @@ enum tagEnum {
     unordered_list_end,
     list_begin,
     list_end,
+    strong_begin,
+    strong_end,
+    strike_underbar_begin,
+    strike_underbar_end,
+    strike_wave_begin,
+    strike_wave_end,
+    underline_begin,
+    underline_end,
+    italic_begin,
+    italic_end,
+    superscript_begin,
+    superscript_end,
+    subscript_begin,
+    subscript_end,
     br
 }
 
 class HTMLTag {
     tag: string[];
+    tagEnum: tagEnum;
     content: (string | undefined);
     property: {[k: string]: any};
 
     constructor(tag: tagEnum, property: {} = {}, content: (string|undefined) = undefined) {
         this.tag = this.caseAssertion(tag);
+        this.tagEnum = tag;
         this.content = content;
         this.property = property;
     }
 
     caseAssertion(tag: tagEnum) {
         switch (tag) {
+            case tagEnum.holder:
+                return [""];
             case tagEnum.text:
                 return ["", ""];
             case tagEnum.plain_text:
@@ -259,6 +410,34 @@ class HTMLTag {
                 return ["<ul>"]
             case tagEnum.unordered_list_end:
                 return ["</ul>"]
+            case tagEnum.strong_begin:
+                return ["<strong>"]
+            case tagEnum.strong_end:
+                return ["</strong>"]
+            case tagEnum.strike_underbar_begin:
+                return ["<del>"]
+            case tagEnum.strike_underbar_end:
+                return ["</del>"]
+            case tagEnum.strike_wave_begin:
+                return ["<del>"]
+            case tagEnum.strike_wave_end:
+                return ["</del>"]
+            case tagEnum.italic_begin:
+                return ["<em>"]
+            case tagEnum.italic_end:
+                return ["</em>"]
+            case tagEnum.superscript_begin:
+                return ["<sup>"]
+            case tagEnum.superscript_end:
+                return ["</sup>"]
+            case tagEnum.subscript_begin:
+                return ["<sub>"]
+            case tagEnum.subscript_end:
+                return ["</sub>"]
+            case tagEnum.underline_begin:
+                return ["<u>"]
+            case tagEnum.underline_end:
+                return ["</u>"]
             case tagEnum.list_begin:
                 return ["<li>"]
             case tagEnum.list_end:
