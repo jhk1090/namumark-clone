@@ -22,3 +22,48 @@ li {
     display: list-item;
     text-align: -webkit-match-parent;
 }
+
+div {
+    display: inline-block
+}
+
+span[class="size-1"] {
+    font-size: 0.833em
+}
+
+span[class="size-2"] {
+    font-size: 0.833em
+}
+
+span[class="size-3"] {
+    font-size: 0.742em
+}
+
+span[class="size-4"] {
+    font-size: 0.648em
+}
+
+span[class="size-5"] {
+    font-size: 0.622em
+}
+
+span[class="size+1"] {
+    font-size: 1.289em
+}
+
+span[class="size+2"] {
+    font-size: 1.389em
+}
+
+span[class="size+3"] {
+    font-size: 1.481em
+}
+
+span[class="size+4"] {
+    font-size: 1.574em
+}
+
+span[class="size+5"] {
+    font-size: 1.667em
+}
+
