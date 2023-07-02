@@ -13,17 +13,16 @@ export class NamuMark {
         subscript: boolean;
         code: boolean;
         code_multiline: boolean;
-        text_sizing: number;
-        wiki_style: number;
     };
     textToken: string[];
-    wt_end: boolean;
+    bracketQueue: tagEnum[];
 
     constructor(wikiText: string, options = undefined) {
         this.wikiText = wikiText;
         this.htmlArray = [];
         // this.textTokenSyntax = ([] as string[]).concat(...Object.values(this.textToken))
         this.textToken = ["'''", "''", "--", "~~", "__", "^^", ",,"];
+        this.bracketQueue = [];
         this.flags = {
             strong: false,
             italic: false,
@@ -34,8 +33,6 @@ export class NamuMark {
             subscript: false,
             code: false,
             code_multiline: false,
-            text_sizing: 0,
-            wiki_style: 0,
         };
     }
 
@@ -70,7 +67,7 @@ export class NamuMark {
                 if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == false) {
                     const sizingRegexWithSpace = /^(\+|-)([1-5]) /g;
                     const sizingRegexWithNewline = /^(\+|-)([1-5])\n/g;
-                    const wikiStyleRegex = /^#wiki style="(.+)?"([^\}]+)?\n/g
+                    const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g
                     
                     if (sizingRegexWithSpace.test(this.wikiText.substring(pos + 3))) {
                         sizingRegexWithSpace.lastIndex = 0;
@@ -79,11 +76,12 @@ export class NamuMark {
                             size = match[2];
                         }
                         this.htmlArray.push(
-                            new HTMLTag(tagEnum.text_sizing_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 7) }, undefined, {
+                            new HTMLTag(tagEnum.text_sizing_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6) }, undefined, {
                                 size,
                             })
                         );
-                        this.flags.text_sizing += 1;
+                        this.bracketQueue.push(tagEnum.text_sizing_begin)
+                        // this.flags.text_sizing += 1;
                         // {{{+2 \n
                         pos += 5;
                         continue;
@@ -94,32 +92,47 @@ export class NamuMark {
                             size = match[2];
                         }
                         this.htmlArray.push(
-                            new HTMLTag(tagEnum.text_sizing_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6) }, undefined, {
+                            new HTMLTag(tagEnum.text_sizing_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 5) }, undefined, {
                                 size,
                             })
                         );
-                        this.flags.text_sizing += 1;
+                        this.bracketQueue.push(tagEnum.text_sizing_begin)
+                        // this.flags.text_sizing += 1;
                         // {{{+2\n
                         pos += 4;
                         continue;
                     } else if (wikiStyleRegex.test(this.wikiText.substring(pos + 3))) {
-                        // wikiStyleRegex.lastIndex = 0;
-                        // let style: string = "";
-                        // for (const match of this.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
-                        //     style = match[1];
-                        // }
-                        // this.htmlArray.push(
-                        //     new HTMLTag(tagEnum.wiki_style_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3))}, undefined, {style})
-                        // )
-                        // this.flags.wiki_style += 1;
-                        // pos = seekEOL(this.wikiText, pos + 3);
-                        // continue;
+                        wikiStyleRegex.lastIndex = 0;
+                        let style: string = "";
+                        for (const match of this.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
+                            style = match[1];
+                        }
+                        this.htmlArray.push(
+                            new HTMLTag(tagEnum.wiki_style_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3))}, undefined, {style})
+                        )
+                        this.bracketQueue.push(tagEnum.wiki_style_begin)
+                        pos = seekEOL(this.wikiText, pos + 3);
+                        continue;
                     } else {
                         this.htmlArray.push(new HTMLTag(tagEnum.code_begin, { originalText: "{{{" }));
                         this.flags.code = true;
                         pos += 2;
                         continue;
                     }
+                }
+
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.text_sizing_begin && this.flags.code == false) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
+                    this.bracketQueue.pop();
+                    pos += 2;
+                    continue;
+                }
+
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.wiki_style_begin && this.flags.code == false) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.wiki_style_end, { originalText: "}}}" }));
+                    this.bracketQueue.pop();
+                    pos += 2;
+                    continue;
                 }
 
                 if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.code == true) {
@@ -129,13 +142,6 @@ export class NamuMark {
                         this.htmlArray.push(new HTMLTag(tagEnum.code_multiline_end));
                         this.flags.code_multiline = false;
                     }
-                    pos += 2;
-                    continue;
-                }
-
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.text_sizing != 0 && this.flags.code == false) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
-                    this.flags.text_sizing -= 1;
                     pos += 2;
                     continue;
                 }
@@ -198,10 +204,19 @@ export class NamuMark {
                 this.htmlArray.splice(idx_pre, 1);
             }
         }
-        if (this.flags.text_sizing && isWikiTextEnd) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+
+        if (isWikiTextEnd) {
+            for (const queue of Array.from(this.bracketQueue).reverse()) {
+                if (queue == tagEnum.text_sizing_begin) {
+                    const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.text_sizing_begin);
+                    const text = this.htmlArray[idx].property.originalText;
+                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));        
+                } else if (queue == tagEnum.wiki_style_begin) {
+                    const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.wiki_style_begin);
+                    const text = this.htmlArray[idx].property.originalText;
+                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+                }
+            }
         }
     }
     textProcessor(pos: number, setPos: (v: number) => void) {
