@@ -14,6 +14,7 @@ export class NamuMark {
         code: boolean;
         code_multiline: boolean;
         text_sizing: number;
+        wiki_style: number;
     };
     textToken: string[];
     wt_end: boolean;
@@ -34,6 +35,7 @@ export class NamuMark {
             code: false,
             code_multiline: false,
             text_sizing: 0,
+            wiki_style: 0,
         };
     }
 
@@ -66,12 +68,14 @@ export class NamuMark {
                 }
 
                 if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == false) {
-                    const regexWithSpace = /^(\+|-)([1-5]) /g;
-                    const regexWithNewline = /^(\+|-)([1-5])\n/g;
-                    if (regexWithSpace.test(this.wikiText.substring(pos + 3))) {
-                        regexWithSpace.lastIndex = 0;
+                    const sizingRegexWithSpace = /^(\+|-)([1-5]) /g;
+                    const sizingRegexWithNewline = /^(\+|-)([1-5])\n/g;
+                    const wikiStyleRegex = /^#wiki style="(.+)?"([^\}]+)?\n/g
+                    
+                    if (sizingRegexWithSpace.test(this.wikiText.substring(pos + 3))) {
+                        sizingRegexWithSpace.lastIndex = 0;
                         let size: string = "";
-                        for (const match of this.wikiText.substring(pos + 3).matchAll(regexWithSpace)) {
+                        for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegexWithSpace)) {
                             size = match[2];
                         }
                         this.htmlArray.push(
@@ -83,10 +87,10 @@ export class NamuMark {
                         // {{{+2 \n
                         pos += 5;
                         continue;
-                    } else if (regexWithNewline.test(this.wikiText.substring(pos + 3))) {
-                        regexWithNewline.lastIndex = 0;
+                    } else if (sizingRegexWithNewline.test(this.wikiText.substring(pos + 3))) {
+                        sizingRegexWithNewline.lastIndex = 0;
                         let size: string = "";
-                        for (const match of this.wikiText.substring(pos + 3).matchAll(regexWithNewline)) {
+                        for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegexWithNewline)) {
                             size = match[2];
                         }
                         this.htmlArray.push(
@@ -98,6 +102,18 @@ export class NamuMark {
                         // {{{+2\n
                         pos += 4;
                         continue;
+                    } else if (wikiStyleRegex.test(this.wikiText.substring(pos + 3))) {
+                        // wikiStyleRegex.lastIndex = 0;
+                        // let style: string = "";
+                        // for (const match of this.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
+                        //     style = match[1];
+                        // }
+                        // this.htmlArray.push(
+                        //     new HTMLTag(tagEnum.wiki_style_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3))}, undefined, {style})
+                        // )
+                        // this.flags.wiki_style += 1;
+                        // pos = seekEOL(this.wikiText, pos + 3);
+                        // continue;
                     } else {
                         this.htmlArray.push(new HTMLTag(tagEnum.code_begin, { originalText: "{{{" }));
                         this.flags.code = true;
@@ -465,6 +481,8 @@ enum tagEnum {
     code_multiline_end,
     text_sizing_begin,
     text_sizing_end,
+    wiki_style_begin,
+    wiki_style_end,
     br,
 }
 
@@ -552,6 +570,10 @@ class HTMLTag {
                 return ["<span@>"];
             case tagEnum.text_sizing_end:
                 return ["</span>"];
+            case tagEnum.wiki_style_begin:
+                return ["<div@>"]
+            case tagEnum.wiki_style_end:
+                return ["</div>"]
             case tagEnum.br:
                 return ["<br@/>"];
             default:
