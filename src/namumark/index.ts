@@ -12,6 +12,7 @@ export class NamuMark {
         superscript: boolean,
         subscript: boolean,
         bracket: boolean,
+        bracket_multiline: boolean
     };
     textToken: string[];
     wt_end: boolean;
@@ -30,6 +31,7 @@ export class NamuMark {
             superscript: false,
             subscript: false,
             bracket: false,
+            bracket_multiline: false,
         };
     }
 
@@ -51,29 +53,43 @@ export class NamuMark {
                         strike_wave: false,
                         underline: false,
                         superscript: false,
-                        subscript: false
+                        subscript: false,
                     };
                     continue;
                 }
 
-                if (this.textToken.some(text => this.wikiText.substring(pos).startsWith(text))) {
+                if (this.textToken.some(text => this.wikiText.substring(pos).startsWith(text)) && this.flags.bracket == false) {
                     this.textProcessor(pos, v => pos = v)
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("{{{")) {
+                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.bracket == false) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.bracket_begin, {originalText: "{{{"}))
+                    this.flags.bracket = true;
+                    pos += 2;
+                    continue;
+                }
 
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.bracket == true) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.bracket_end, {originalText: "}}}"}))
+                    this.flags.bracket = false;
+                    if (this.flags.bracket_multiline) {
+                        this.htmlArray.push(new HTMLTag(tagEnum.bracket_multiline_end));
+                        this.flags.bracket_multiline = false;
+                    }
+                    pos += 2;
+                    continue;
                 }
 
                 this.htmlArray.push(new HTMLTag(tagEnum.text, {}, now))
             }
         }
-        this.textEndlineProcessor();
+        this.textEndlineProcessor(true);
         return this.arrayToHtmlString();
 
     }
 
-    textEndlineProcessor() {
+    textEndlineProcessor(isWikiTextEnd: boolean = false) {
         if (this.flags.strong) {
             const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.strong_begin);
             const text = this.htmlArray[idx].property.originalText
@@ -108,6 +124,21 @@ export class NamuMark {
             const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.subscript_begin);
             const text = this.htmlArray[idx].property.originalText
             this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text))
+        }
+        if (this.flags.bracket && !isWikiTextEnd && !this.flags.bracket_multiline) {
+            const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.bracket_begin);
+            const text = this.htmlArray[idx]
+            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.bracket_multiline_begin), text)
+            this.flags.bracket_multiline = true;
+        }
+        if (this.flags.bracket && isWikiTextEnd) {
+            const idx_code = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.bracket_begin);
+            const text = this.htmlArray[idx_code].property.originalText
+            this.htmlArray.splice(idx_code, 1, new HTMLTag(tagEnum.text, {}, text))
+            if (this.flags.bracket_multiline) {
+                const idx_pre = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.bracket_multiline_begin);
+                this.htmlArray.splice(idx_pre, 1)
+            }
         }
     }
     textProcessor(pos: number, setPos: (v: number) => void) {
@@ -346,10 +377,11 @@ export class NamuMark {
         const documentStructure = ["<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Document</title>\n<link rel=\"stylesheet\" href=\"viewStyle.css\">\n</head>\n<body>", "</body>\n</html>"]
         let htmlString = "";
         for (const tag of this.htmlArray) {
-            console.log(tag);
+            // console.log(tag);
             htmlString += tag.toString();
         }
         console.log(htmlString)
+        
         return documentStructure[0] + htmlString + documentStructure[1]
     }
 }
@@ -378,6 +410,10 @@ enum tagEnum {
     superscript_end,
     subscript_begin,
     subscript_end,
+    bracket_begin,
+    bracket_end,
+    bracket_multiline_begin,
+    bracket_multiline_end,
     br
 }
 
@@ -442,6 +478,14 @@ class HTMLTag {
                 return ["<li>"]
             case tagEnum.list_end:
                 return ["</li>"]
+            case tagEnum.bracket_begin:
+                return ["<code>"]
+            case tagEnum.bracket_end:
+                return ["</code>"]
+            case tagEnum.bracket_multiline_begin:
+                return ["<pre>"]
+            case tagEnum.bracket_multiline_end:
+                return ["</pre>"]
             case tagEnum.br:
                 return ["<br/>"]
             default:
