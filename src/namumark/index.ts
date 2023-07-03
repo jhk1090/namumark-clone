@@ -1,5 +1,4 @@
 import seekEOL from "./seekEOL";
-
 export class NamuMark {
     wikiText: string;
     htmlArray: HTMLTag[];
@@ -13,9 +12,10 @@ export class NamuMark {
         subscript: boolean;
         code: boolean;
         code_multiline: boolean;
+        html_escape: boolean;
     };
     textToken: string[];
-    bracketQueue: tagEnum[];
+    bracketQueue: (tagEnum.code_innerbracket_begin | tagEnum.text_sizing_begin | tagEnum.wiki_style_begin | tagEnum.html_bracket_begin)[];
 
     constructor(wikiText: string, options = undefined) {
         this.wikiText = wikiText;
@@ -33,6 +33,7 @@ export class NamuMark {
             subscript: false,
             code: false,
             code_multiline: false,
+            html_escape: true,
         };
     }
 
@@ -63,12 +64,12 @@ export class NamuMark {
                     this.textProcessor(pos, (v) => (pos = v));
                     continue;
                 }
-
-                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == false) {
+                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == false && this.flags.html_escape == true) {
                     const sizingRegexWithSpace = /^(\+|-)([1-5]) /g;
                     const sizingRegexWithNewline = /^(\+|-)([1-5])\n/g;
-                    const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g
-                    
+                    const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g;
+                    const htmlRegex = /^#!html/g;
+
                     if (sizingRegexWithSpace.test(this.wikiText.substring(pos + 3))) {
                         sizingRegexWithSpace.lastIndex = 0;
                         let size: string = "";
@@ -78,11 +79,16 @@ export class NamuMark {
                             size = match[2];
                         }
                         this.htmlArray.push(
-                            new HTMLTag(tagEnum.text_sizing_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6), isClosed: false }, undefined, {
-                                class: "size" + sign + size,
-                            })
+                            new HTMLTag(
+                                tagEnum.text_sizing_begin,
+                                { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6), isClosed: false },
+                                undefined,
+                                {
+                                    class: "size" + sign + size,
+                                }
+                            )
                         );
-                        this.bracketQueue.push(tagEnum.text_sizing_begin)
+                        this.bracketQueue.push(tagEnum.text_sizing_begin);
                         // this.flags.text_sizing += 1;
                         // {{{+2 \n
                         pos += 5;
@@ -96,14 +102,27 @@ export class NamuMark {
                             size = match[2];
                         }
                         this.htmlArray.push(
-                            new HTMLTag(tagEnum.text_sizing_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 5), isClosed: false }, undefined, {
-                                class: "size" + sign + size,
-                            })
+                            new HTMLTag(
+                                tagEnum.text_sizing_begin,
+                                { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 5), isClosed: false },
+                                undefined,
+                                {
+                                    class: "size" + sign + size,
+                                }
+                            )
                         );
-                        this.bracketQueue.push(tagEnum.text_sizing_begin)
+                        this.bracketQueue.push(tagEnum.text_sizing_begin);
                         // this.flags.text_sizing += 1;
                         // {{{+2\n
                         pos += 4;
+                        continue;
+                    } else if (htmlRegex.test(this.wikiText.substring(pos + 3))) {
+                        htmlRegex.lastIndex = 0;
+                        this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_begin, { originalText: "{{{#!html", isClosed: false }));
+                        this.bracketQueue.push(tagEnum.html_bracket_begin);
+                        // {{{#!html
+                        this.flags.html_escape = false;
+                        pos += 8;
                         continue;
                     } else if (wikiStyleRegex.test(this.wikiText.substring(pos + 3))) {
                         wikiStyleRegex.lastIndex = 0;
@@ -112,9 +131,14 @@ export class NamuMark {
                             style = match[1];
                         }
                         this.htmlArray.push(
-                            new HTMLTag(tagEnum.wiki_style_begin, { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3) + 1), isClosed: false }, undefined, {style})
-                        )
-                        this.bracketQueue.push(tagEnum.wiki_style_begin)
+                            new HTMLTag(
+                                tagEnum.wiki_style_begin,
+                                { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3) + 1), isClosed: false },
+                                undefined,
+                                { style }
+                            )
+                        );
+                        this.bracketQueue.push(tagEnum.wiki_style_begin);
                         pos = seekEOL(this.wikiText, pos + 3);
                         continue;
                     } else {
@@ -125,14 +149,19 @@ export class NamuMark {
                     }
                 }
 
-                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == true) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_begin, {originalText: "{{{", isClosed: false}))
-                    this.bracketQueue.push(tagEnum.code_innerbracket_begin)
+                if (this.wikiText.substring(pos).startsWith("{{{") && (this.flags.code == true || this.flags.html_escape == false)) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_begin, { originalText: "{{{", isClosed: false }));
+                    this.bracketQueue.push(tagEnum.code_innerbracket_begin);
                     pos += 2;
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin && this.flags.code == true) {
+                if (
+                    this.wikiText.substring(pos).startsWith("}}}") &&
+                    this.bracketQueue.length !== 0 &&
+                    this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin &&
+                    (this.flags.code == true || this.flags.html_escape == false)
+                ) {
                     const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
                     this.htmlArray[idx].property.isClosed = true;
                     this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_end, { originalText: "}}}" }));
@@ -141,7 +170,29 @@ export class NamuMark {
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.text_sizing_begin && this.flags.code == false) {
+                if (
+                    this.wikiText.substring(pos).startsWith("}}}") &&
+                    this.bracketQueue.length !== 0 &&
+                    this.bracketQueue.at(-1) == tagEnum.html_bracket_begin &&
+                    this.flags.code == false &&
+                    this.flags.html_escape == false
+                ) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isClosed == false);
+                    this.htmlArray[idx].property.isClosed = true;
+                    this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_end, { originalText: "}}}" }));
+                    this.bracketQueue.pop();
+                    this.flags.html_escape = true;
+                    pos += 2;
+                    continue;
+                }
+
+                if (
+                    this.wikiText.substring(pos).startsWith("}}}") &&
+                    this.bracketQueue.length !== 0 &&
+                    this.bracketQueue.at(-1) == tagEnum.text_sizing_begin &&
+                    this.flags.code == false &&
+                    this.flags.html_escape == true
+                ) {
                     const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
                     this.htmlArray[idx].property.isClosed = true;
                     this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
@@ -150,7 +201,13 @@ export class NamuMark {
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.bracketQueue.length !== 0 && this.bracketQueue.at(-1) == tagEnum.wiki_style_begin && this.flags.code == false) {
+                if (
+                    this.wikiText.substring(pos).startsWith("}}}") &&
+                    this.bracketQueue.length !== 0 &&
+                    this.bracketQueue.at(-1) == tagEnum.wiki_style_begin &&
+                    this.flags.code == false &&
+                    this.flags.html_escape == true
+                ) {
                     const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
                     this.htmlArray[idx].property.isClosed = true;
                     this.htmlArray.push(new HTMLTag(tagEnum.wiki_style_end, { originalText: "}}}" }));
@@ -159,7 +216,7 @@ export class NamuMark {
                     continue;
                 }
 
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.code == true) {
+                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.code == true && this.flags.html_escape == true) {
                     this.htmlArray.push(new HTMLTag(tagEnum.code_end, { originalText: "}}}" }));
                     this.flags.code = false;
                     if (this.flags.code_multiline) {
@@ -170,7 +227,11 @@ export class NamuMark {
                     continue;
                 }
 
-                this.htmlArray.push(new HTMLTag(tagEnum.text, {}, now));
+                if (this.flags.html_escape) {
+                    this.htmlArray.push(new HTMLTag(tagEnum.text, { isEscaped: true }, now));
+                } else {
+                    this.htmlArray.push(new HTMLTag(tagEnum.text, { isEscaped: false }, now));
+                }
             }
         }
         this.textEndlineProcessor(true);
@@ -232,16 +293,27 @@ export class NamuMark {
         if (isWikiTextEnd) {
             for (const queue of Array.from(this.bracketQueue).reverse()) {
                 if (queue == tagEnum.text_sizing_begin) {
-                    const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));        
+                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 } else if (queue == tagEnum.wiki_style_begin) {
-                    const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 } else if (queue == tagEnum.code_innerbracket_begin) {
-                    const idx = this.htmlArray.findLastIndex(v => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
+                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+                } else if (queue == tagEnum.html_bracket_begin) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isClosed == false);
+                    const text = this.htmlArray[idx].property.originalText;
+                    const since_html_bracket: HTMLTag[] = this.htmlArray.slice(idx).map((x) => {
+                        if (x.property.isEscaped === false) {
+                            x.property.isEscaped = true;
+                        }
+                        return x;
+                    });
+                    this.htmlArray = [...this.htmlArray.slice(0, idx), ...since_html_bracket];
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 }
             }
@@ -528,6 +600,8 @@ enum tagEnum {
     wiki_style_end,
     code_innerbracket_begin,
     code_innerbracket_end,
+    html_bracket_begin,
+    html_bracket_end,
     br,
 }
 
@@ -616,13 +690,17 @@ class HTMLTag {
             case tagEnum.text_sizing_end:
                 return ["</span>"];
             case tagEnum.wiki_style_begin:
-                return ["<div@>"]
+                return ["<div@>"];
             case tagEnum.wiki_style_end:
-                return ["</div>"]
+                return ["</div>"];
             case tagEnum.code_innerbracket_begin:
-                return ["{{{"]
+                return ["{{{"];
             case tagEnum.code_innerbracket_end:
-                return ["}}}"]
+                return ["}}}"];
+            case tagEnum.html_bracket_begin:
+                return ["<div@>"];
+            case tagEnum.html_bracket_end:
+                return ["</div>"];
             case tagEnum.br:
                 return ["<br@/>"];
             default:
@@ -643,6 +721,17 @@ class HTMLTag {
             let tagArray = this.tag[0].split("");
             tagArray[this.tag[0].lastIndexOf("@")] = parameter;
             this.tag[0] = tagArray.join("");
+        }
+        if (this.property.isEscaped && this.content !== undefined) {
+            let map: { [k: string]: string } = {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+            };
+
+            if (map[this.content] != undefined) {
+                this.content = map[this.content];
+            }
         }
         if (this.content == undefined) {
             return this.tag[0];
