@@ -87,6 +87,7 @@ export class NamuMark {
     }
 
     textEndlineProcessor(isWikiTextEnd: boolean = false) {
+        // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화
         if (this.flags.strong) {
             const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.strong_begin);
             const text = this.htmlArray[idx].property.originalText;
@@ -122,12 +123,17 @@ export class NamuMark {
             const text = this.htmlArray[idx].property.originalText;
             this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
         }
+        // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화 (끝)
+
+        // code가 줄바꿈 시 <code> -> <pre><code>로 변환
         if (this.flags.code && !isWikiTextEnd && !this.flags.code_multiline) {
             const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_begin);
             const text = this.htmlArray[idx];
             this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.code_multiline_begin), text);
             this.flags.code_multiline = true;
         }
+
+        // wikiText가 끝났을 때 code 문법 무효화
         if (this.flags.code && isWikiTextEnd) {
             const idx_code = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_begin);
             const text = this.htmlArray[idx_code].property.originalText;
@@ -138,6 +144,7 @@ export class NamuMark {
             }
         }
 
+        // wikiText가 끝났을 때 각종 bracket 무효화
         if (isWikiTextEnd) {
             for (const queue of Array.from(this.bracketQueue).reverse()) {
                 if (queue == tagEnum.text_sizing_begin) {
@@ -582,10 +589,6 @@ enum tagEnum {
     plain_text,
     plain_text_end,
     plain_text_begin,
-    unordered_list_begin,
-    unordered_list_end,
-    list_begin,
-    list_end,
     strong_begin,
     strong_end,
     strike_underbar_begin,
@@ -651,10 +654,6 @@ class HTMLTag {
                 return ["<div@>"];
             case tagEnum.plain_text_end:
                 return ["</div>"];
-            case tagEnum.unordered_list_begin:
-                return ["<ul@>"];
-            case tagEnum.unordered_list_end:
-                return ["</ul>"];
             case tagEnum.strong_begin:
                 return ["<strong@>"];
             case tagEnum.strong_end:
@@ -683,10 +682,6 @@ class HTMLTag {
                 return ["<u@>"];
             case tagEnum.underline_end:
                 return ["</u>"];
-            case tagEnum.list_begin:
-                return ["<li@>"];
-            case tagEnum.list_end:
-                return ["</li>"];
             case tagEnum.code_begin:
                 return ["<code@>"];
             case tagEnum.code_end:
