@@ -64,166 +64,14 @@ export class NamuMark {
                     this.textProcessor(pos, (v) => (pos = v));
                     continue;
                 }
-                if (this.wikiText.substring(pos).startsWith("{{{") && this.flags.code == false && this.flags.html_escape == true) {
-                    const sizingRegexWithSpace = /^(\+|-)([1-5]) /g;
-                    const sizingRegexWithNewline = /^(\+|-)([1-5])\n/g;
-                    const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g;
-                    const htmlRegex = /^#!html/g;
 
-                    if (sizingRegexWithSpace.test(this.wikiText.substring(pos + 3))) {
-                        sizingRegexWithSpace.lastIndex = 0;
-                        let size: string = "";
-                        let sign: string = "";
-                        for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegexWithSpace)) {
-                            sign = match[1];
-                            size = match[2];
-                        }
-                        this.htmlArray.push(
-                            new HTMLTag(
-                                tagEnum.text_sizing_begin,
-                                { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6), isClosed: false },
-                                undefined,
-                                {
-                                    class: "size" + sign + size,
-                                }
-                            )
-                        );
-                        this.bracketQueue.push(tagEnum.text_sizing_begin);
-                        // this.flags.text_sizing += 1;
-                        // {{{+2 \n
-                        pos += 5;
-                        continue;
-                    } else if (sizingRegexWithNewline.test(this.wikiText.substring(pos + 3))) {
-                        sizingRegexWithNewline.lastIndex = 0;
-                        let size: string = "";
-                        let sign: string = "";
-                        for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegexWithSpace)) {
-                            sign = match[1];
-                            size = match[2];
-                        }
-                        this.htmlArray.push(
-                            new HTMLTag(
-                                tagEnum.text_sizing_begin,
-                                { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 5), isClosed: false },
-                                undefined,
-                                {
-                                    class: "size" + sign + size,
-                                }
-                            )
-                        );
-                        this.bracketQueue.push(tagEnum.text_sizing_begin);
-                        // this.flags.text_sizing += 1;
-                        // {{{+2\n
-                        pos += 4;
-                        continue;
-                    } else if (htmlRegex.test(this.wikiText.substring(pos + 3))) {
-                        htmlRegex.lastIndex = 0;
-                        this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_begin, { originalText: "{{{#!html", isClosed: false }));
-                        this.bracketQueue.push(tagEnum.html_bracket_begin);
-                        // {{{#!html
-                        this.flags.html_escape = false;
-                        pos += 8;
-                        continue;
-                    } else if (wikiStyleRegex.test(this.wikiText.substring(pos + 3))) {
-                        wikiStyleRegex.lastIndex = 0;
-                        let style: string = "";
-                        for (const match of this.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
-                            style = match[1];
-                        }
-                        this.htmlArray.push(
-                            new HTMLTag(
-                                tagEnum.wiki_style_begin,
-                                { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3) + 1), isClosed: false },
-                                undefined,
-                                { style }
-                            )
-                        );
-                        this.bracketQueue.push(tagEnum.wiki_style_begin);
-                        pos = seekEOL(this.wikiText, pos + 3);
-                        continue;
-                    } else {
-                        this.htmlArray.push(new HTMLTag(tagEnum.code_begin, { originalText: "{{{" }));
-                        this.flags.code = true;
-                        pos += 2;
-                        continue;
-                    }
-                }
-
-                if (this.wikiText.substring(pos).startsWith("{{{") && (this.flags.code == true || this.flags.html_escape == false)) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_begin, { originalText: "{{{", isClosed: false }));
-                    this.bracketQueue.push(tagEnum.code_innerbracket_begin);
-                    pos += 2;
+                if (this.wikiText.substring(pos).startsWith("{{{")) {
+                    this.bracketOpenProcessor(pos, v => pos = v);
                     continue;
                 }
 
-                if (
-                    this.wikiText.substring(pos).startsWith("}}}") &&
-                    this.bracketQueue.length !== 0 &&
-                    this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin &&
-                    (this.flags.code == true || this.flags.html_escape == false)
-                ) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
-                    this.htmlArray[idx].property.isClosed = true;
-                    this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_end, { originalText: "}}}" }));
-                    this.bracketQueue.pop();
-                    pos += 2;
-                    continue;
-                }
-
-                if (
-                    this.wikiText.substring(pos).startsWith("}}}") &&
-                    this.bracketQueue.length !== 0 &&
-                    this.bracketQueue.at(-1) == tagEnum.html_bracket_begin &&
-                    this.flags.code == false &&
-                    this.flags.html_escape == false
-                ) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isClosed == false);
-                    this.htmlArray[idx].property.isClosed = true;
-                    this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_end, { originalText: "}}}" }));
-                    this.bracketQueue.pop();
-                    this.flags.html_escape = true;
-                    pos += 2;
-                    continue;
-                }
-
-                if (
-                    this.wikiText.substring(pos).startsWith("}}}") &&
-                    this.bracketQueue.length !== 0 &&
-                    this.bracketQueue.at(-1) == tagEnum.text_sizing_begin &&
-                    this.flags.code == false &&
-                    this.flags.html_escape == true
-                ) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
-                    this.htmlArray[idx].property.isClosed = true;
-                    this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
-                    this.bracketQueue.pop();
-                    pos += 2;
-                    continue;
-                }
-
-                if (
-                    this.wikiText.substring(pos).startsWith("}}}") &&
-                    this.bracketQueue.length !== 0 &&
-                    this.bracketQueue.at(-1) == tagEnum.wiki_style_begin &&
-                    this.flags.code == false &&
-                    this.flags.html_escape == true
-                ) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
-                    this.htmlArray[idx].property.isClosed = true;
-                    this.htmlArray.push(new HTMLTag(tagEnum.wiki_style_end, { originalText: "}}}" }));
-                    this.bracketQueue.pop();
-                    pos += 2;
-                    continue;
-                }
-
-                if (this.wikiText.substring(pos).startsWith("}}}") && this.flags.code == true && this.flags.html_escape == true) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.code_end, { originalText: "}}}" }));
-                    this.flags.code = false;
-                    if (this.flags.code_multiline) {
-                        this.htmlArray.push(new HTMLTag(tagEnum.code_multiline_end));
-                        this.flags.code_multiline = false;
-                    }
-                    pos += 2;
+                if (this.wikiText.substring(pos).startsWith("}}}")) {
+                    this.bracketCloseProcessor(pos, v => pos = v);
                     continue;
                 }
 
@@ -401,6 +249,168 @@ export class NamuMark {
         this.htmlArray.push(new HTMLTag(tag, { originalText: matchedSyntax }));
         setPos(pos + posIncrement);
         return;
+    }
+    bracketOpenProcessor(pos: number, setPos: (v: number) => void) {
+        if (this.flags.code == false && this.flags.html_escape == true) {
+            const sizingRegexWithSpace = /^(\+|-)([1-5]) /g;
+            const sizingRegexWithNewline = /^(\+|-)([1-5])\n/g;
+            const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g;
+            const htmlRegex = /^#!html/g;
+
+            if (sizingRegexWithSpace.test(this.wikiText.substring(pos + 3))) {
+                sizingRegexWithSpace.lastIndex = 0;
+                let size: string = "";
+                let sign: string = "";
+                for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegexWithSpace)) {
+                    sign = match[1];
+                    size = match[2];
+                }
+                this.htmlArray.push(
+                    new HTMLTag(
+                        tagEnum.text_sizing_begin,
+                        { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 6), isClosed: false },
+                        undefined,
+                        {
+                            class: "size" + sign + size,
+                        }
+                    )
+                );
+                this.bracketQueue.push(tagEnum.text_sizing_begin);
+                // this.flags.text_sizing += 1;
+                // {{{+2 \n
+                setPos(pos + 5);
+            } else if (sizingRegexWithNewline.test(this.wikiText.substring(pos + 3))) {
+                sizingRegexWithNewline.lastIndex = 0;
+                let size: string = "";
+                let sign: string = "";
+                for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegexWithSpace)) {
+                    sign = match[1];
+                    size = match[2];
+                }
+                this.htmlArray.push(
+                    new HTMLTag(
+                        tagEnum.text_sizing_begin,
+                        { originalText: "{{{" + this.wikiText.substring(pos + 3, pos + 5), isClosed: false },
+                        undefined,
+                        {
+                            class: "size" + sign + size,
+                        }
+                    )
+                );
+                this.bracketQueue.push(tagEnum.text_sizing_begin);
+                // this.flags.text_sizing += 1;
+                // {{{+2\n
+                setPos(pos + 4);
+            } else if (htmlRegex.test(this.wikiText.substring(pos + 3))) {
+                htmlRegex.lastIndex = 0;
+                this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_begin, { originalText: "{{{#!html", isClosed: false }));
+                this.bracketQueue.push(tagEnum.html_bracket_begin);
+                // {{{#!html
+                this.flags.html_escape = false;
+                setPos(pos + 8);
+            } else if (wikiStyleRegex.test(this.wikiText.substring(pos + 3))) {
+                wikiStyleRegex.lastIndex = 0;
+                let style: string = "";
+                for (const match of this.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
+                    style = match[1];
+                }
+                this.htmlArray.push(
+                    new HTMLTag(
+                        tagEnum.wiki_style_begin,
+                        { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3) + 1), isClosed: false },
+                        undefined,
+                        { style }
+                    )
+                );
+                this.bracketQueue.push(tagEnum.wiki_style_begin);
+                setPos(seekEOL(this.wikiText, pos + 3));
+            } else {
+                this.htmlArray.push(new HTMLTag(tagEnum.code_begin, { originalText: "{{{" }));
+                this.flags.code = true;
+                setPos(pos + 2);
+            }
+            return;
+        }
+
+        if (this.flags.code == true || this.flags.html_escape == false) {
+            this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_begin, { originalText: "{{{", isClosed: false }));
+            this.bracketQueue.push(tagEnum.code_innerbracket_begin);
+            setPos(pos + 2);
+            return;
+        }
+    }
+    bracketCloseProcessor(pos: number, setPos: (v: number) => void) {
+        // #!html 상태 또는 code bracket 상태의 innerbracket
+        if (
+            this.bracketQueue.length !== 0 &&
+            this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin &&
+            (this.flags.code == true || this.flags.html_escape == false)
+        ) {
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
+            this.htmlArray[idx].property.isClosed = true;
+            this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_end, { originalText: "}}}" }));
+            this.bracketQueue.pop();
+            setPos(pos + 2);
+            return;
+        }
+
+        // #!html 상태 그리고 code bracket이 아닌 경우 #!html bracket 닫기
+        if (
+            this.bracketQueue.length !== 0 &&
+            this.bracketQueue.at(-1) == tagEnum.html_bracket_begin &&
+            this.flags.code == false &&
+            this.flags.html_escape == false
+        ) {
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isClosed == false);
+            this.htmlArray[idx].property.isClosed = true;
+            this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_end, { originalText: "}}}" }));
+            this.bracketQueue.pop();
+            this.flags.html_escape = true;
+            setPos(pos + 2);
+            return;
+        }
+
+        // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_sizing bracket 닫기
+        if (
+            this.bracketQueue.length !== 0 &&
+            this.bracketQueue.at(-1) == tagEnum.text_sizing_begin &&
+            this.flags.code == false &&
+            this.flags.html_escape == true
+        ) {
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
+            this.htmlArray[idx].property.isClosed = true;
+            this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
+            this.bracketQueue.pop();
+            setPos(pos + 2);
+            return;
+        }
+
+        // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 wiki_style bracket 닫기
+        if (
+            this.bracketQueue.length !== 0 &&
+            this.bracketQueue.at(-1) == tagEnum.wiki_style_begin &&
+            this.flags.code == false &&
+            this.flags.html_escape == true
+        ) {
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
+            this.htmlArray[idx].property.isClosed = true;
+            this.htmlArray.push(new HTMLTag(tagEnum.wiki_style_end, { originalText: "}}}" }));
+            this.bracketQueue.pop();
+            setPos(pos + 2);
+            return;
+        }
+
+        // #!html 상태가 아니고 그리고 code bracket 상태인 경우 code bracket 닫기
+        if (this.flags.code == true && this.flags.html_escape == true) {
+            this.htmlArray.push(new HTMLTag(tagEnum.code_end, { originalText: "}}}" }));
+            this.flags.code = false;
+            if (this.flags.code_multiline) {
+                this.htmlArray.push(new HTMLTag(tagEnum.code_multiline_end));
+                this.flags.code_multiline = false;
+            }
+            setPos(pos + 2);
+            return;
+        }
     }
 
     // listProcessor(wikiText: string, pos: number, setPos: (v: number)=>number) {
