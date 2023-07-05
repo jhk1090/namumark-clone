@@ -12,5 +12,8 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.2.5"
+  },
+  "dependencies": {
+    "highlight.js": "^11.8.0"
   }
 }

@@ -7,5 +7,30 @@
 <title>Document</title>
 <link rel="stylesheet" href="viewStyle.css">
 </head>
-<body></body>
+<body>==== [[C++]] 구현 ====<br/><pre><code>
+<span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;functional&gt;</span></span>
+<span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;iostream&gt;</span></span>
+
+<span class="hljs-keyword">using</span> <span class="hljs-keyword">namespace</span> std;
+
+<span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">increase</span><span class="hljs-params">(<span class="hljs-type">int</span>)</span></span>;
+<span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">apply</span><span class="hljs-params">(function&lt;<span class="hljs-type">int</span>(<span class="hljs-type">int</span>)&gt;, <span class="hljs-type">int</span>)</span></span>;
+
+<span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">main</span><span class="hljs-params">(<span class="hljs-type">int</span> argc, <span class="hljs-type">char</span> **argv)</span>
+</span>{
+	cout &lt;&lt; <span class="hljs-built_in">apply</span>(increase, <span class="hljs-number">9</span>) &lt;&lt; endl; <span class="hljs-comment">// 10</span>
+
+	<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;
+}
+
+<span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">increase</span><span class="hljs-params">(<span class="hljs-type">int</span> value)</span>
+</span>{
+	<span class="hljs-keyword">return</span> value + <span class="hljs-number">1</span>;
+}
+
+<span class="hljs-function"><span class="hljs-type">int</span> <span class="hljs-title">apply</span><span class="hljs-params">(function&lt;<span class="hljs-type">int</span>(<span class="hljs-type">int</span>)&gt; fx, <span class="hljs-type">int</span> value)</span>
+</span>{
+	<span class="hljs-keyword">return</span> <span class="hljs-built_in">fx</span>(value);
+}
+</code></pre><br/><br/></body>
 </html>

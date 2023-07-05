@@ -1,4 +1,6 @@
 import seekEOL from "./seekEOL";
+import hljs from "highlight.js"
+
 export class NamuMark {
     wikiText: string;
     htmlArray: HTMLTag[];
@@ -79,19 +81,19 @@ export class NamuMark {
                     };
                     continue;
                 }
-
-                if (this.textToken.some((text) => this.wikiText.substring(pos).startsWith(text)) && this.flags.code == false) {
-                    this.textProcessor(pos, (v) => (pos = v));
-                    continue;
-                }
-
+                
                 if (this.wikiText.substring(pos).startsWith("{{{")) {
                     this.bracketOpenProcessor(pos, (v) => (pos = v));
                     continue;
                 }
-
+                
                 if (this.wikiText.substring(pos).startsWith("}}}")) {
                     this.bracketCloseProcessor(pos, (v) => (pos = v));
+                    continue;
+                }
+                
+                if (this.textToken.some((text) => this.wikiText.substring(pos).startsWith(text)) && this.flags.code == false) {
+                    this.textProcessor(pos, (v) => (pos = v));
                     continue;
                 }
 
@@ -492,6 +494,33 @@ export class NamuMark {
                 this.htmlArray.push(new HTMLTag(tagEnum.code_multiline_end));
                 this.flags.code_multiline = false;
             }
+            
+            const syntaxRegex = /^#!syntax (basic|cpp|csharp|css|erlang|go|java|javascript|json|kotlin|lisp|lua|markdown|objectivec|perl|php|powershell|python|ruby|rust|sh|sql|swift|typescript|xml)(.+)/gs;
+            const code_begin_idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_begin);
+            const code_end_idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_end);
+            let code_array = this.htmlArray.slice(code_begin_idx, code_end_idx + 1);
+            code_array.splice(0, 1);
+            code_array.splice(-1);
+            let code_content: string = "";
+            for (const value of code_array) {
+                code_content += value.toString(false, false);
+            }
+
+            if (syntaxRegex.test(code_content)) {
+                syntaxRegex.lastIndex = 0;
+                let language = "";
+                let content = "";
+                let converted = "";
+                for (const match of code_content.matchAll(syntaxRegex)) {
+                    language = match[1]
+                    content = match[2];
+                }
+                converted = hljs.highlight(content, {language}).value
+                this.htmlArray.splice(code_begin_idx + 1, code_array.length, new HTMLTag(tagEnum.text, {isEscaped: false}, converted))
+                // converted 결과 -> isEscaped: true로 시작, htmlArray [code_begin_idx, code_end_idx]
+                // TODO
+            }
+
             setPos(pos + 2);
             return;
         }
@@ -796,7 +825,7 @@ class HTMLTag {
         }
     }
 
-    toString() {
+    toString(forceEscaped: boolean = true, isNewlineReplaced: boolean = true) {
         let parameter = "";
         for (const pair of Object.entries(this.parameter)) {
             if (pair[1] == "") continue;
@@ -810,7 +839,7 @@ class HTMLTag {
             tagArray[this.tag[0].lastIndexOf("@")] = parameter;
             this.tag[0] = tagArray.join("");
         }
-        if (this.property.isEscaped && this.content !== undefined) {
+        if (this.property.isEscaped && this.content !== undefined && forceEscaped) {
             let map: { [k: string]: string } = {
                 "&": "&amp;",
                 "<": "&lt;",
@@ -821,6 +850,12 @@ class HTMLTag {
                 this.content = map[this.content];
             }
         }
+
+        // br 태그 방지용
+        if (this.tagEnum == tagEnum.br && !isNewlineReplaced) {
+            return "\n";
+        }
+
         if (this.content == undefined) {
             return this.tag[0];
         } else {
