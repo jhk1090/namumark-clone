@@ -170,27 +170,27 @@ export class NamuMark {
         if (isWikiTextEnd) {
             for (const queue of Array.from(this.bracketQueue).reverse()) {
                 if (queue == tagEnum.text_sizing_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 } else if (queue == tagEnum.text_color_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_color_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_color_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 } else if (queue == tagEnum.wiki_style_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 } else if (queue == tagEnum.code_innerbracket_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 } else if (queue == tagEnum.html_bracket_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isClosed == false);
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
                     const since_html_bracket: HTMLTag[] = this.htmlArray.slice(idx).map((x) => {
-                        if (x.property.isEscaped === false) {
-                            x.property.isEscaped = true;
+                        if (x.property.toBeEscaped === false) {
+                            x.property.toBeEscaped = true;
                         }
                         return x;
                     });
@@ -417,8 +417,8 @@ export class NamuMark {
             this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin &&
             (this.flags.code == true || this.flags.html_escape == false)
         ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isClosed == false);
-            this.htmlArray[idx].property.isClosed = true;
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false);
+            this.htmlArray[idx].property.isBracketClosed = true;
             this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_end, { originalText: "}}}" }));
             this.bracketQueue.pop();
             setPos(pos + 2);
@@ -432,8 +432,8 @@ export class NamuMark {
             this.flags.code == false &&
             this.flags.html_escape == false
         ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isClosed == false);
-            this.htmlArray[idx].property.isClosed = true;
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
+            this.htmlArray[idx].property.isBracketClosed = true;
             this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_end, { originalText: "}}}" }));
             this.bracketQueue.pop();
             this.flags.html_escape = true;
@@ -448,8 +448,8 @@ export class NamuMark {
             this.flags.code == false &&
             this.flags.html_escape == true
         ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isClosed == false);
-            this.htmlArray[idx].property.isClosed = true;
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
+            this.htmlArray[idx].property.isBracketClosed = true;
             this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
             this.bracketQueue.pop();
             setPos(pos + 2);
@@ -463,8 +463,8 @@ export class NamuMark {
             this.flags.code == false &&
             this.flags.html_escape == true
         ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_color_begin && v.property.isClosed == false);
-            this.htmlArray[idx].property.isClosed = true;
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_color_begin && v.property.isBracketClosed == false);
+            this.htmlArray[idx].property.isBracketClosed = true;
             this.htmlArray.push(new HTMLTag(tagEnum.text_color_end, { originalText: "}}}" }));
             this.bracketQueue.pop();
             setPos(pos + 2);
@@ -478,8 +478,8 @@ export class NamuMark {
             this.flags.code == false &&
             this.flags.html_escape == true
         ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isClosed == false);
-            this.htmlArray[idx].property.isClosed = true;
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
+            this.htmlArray[idx].property.isBracketClosed = true;
             this.htmlArray.push(new HTMLTag(tagEnum.wiki_style_end, { originalText: "}}}" }));
             this.bracketQueue.pop();
             setPos(pos + 2);
@@ -733,7 +733,11 @@ class HTMLTag {
     parameter: {
         [k: string]: string;
     };
-    property: { [k: string]: any };
+    property: { 
+        originalText?: string;
+        toBeEscaped?: boolean;
+        isBracketClosed?: boolean;
+    };
 
     constructor(
         tag: tagEnum,
@@ -839,7 +843,7 @@ class HTMLTag {
             tagArray[this.tag[0].lastIndexOf("@")] = parameter;
             this.tag[0] = tagArray.join("");
         }
-        if (this.property.isEscaped && this.content !== undefined && forceEscaped) {
+        if (this.property.toBeEscaped && this.content !== undefined && forceEscaped) {
             let map: { [k: string]: string } = {
                 "&": "&amp;",
                 "<": "&lt;",
