@@ -1,3 +1,6 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs.min.css"); /* light mode */
+/* @import url("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css"); */
+
 ul {
     display: block;
     list-style-type: disc;
@@ -66,4 +69,3 @@ span[class="size+4"] {
 span[class="size+5"] {
     font-size: 1.667em
 }
-
