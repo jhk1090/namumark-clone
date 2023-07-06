@@ -1,5 +1,4 @@
-import seekEOL from "./seekEOL";
-import hljs from "highlight.js"
+import { bracketOpenProcessor, bracketCloseProcessor, textProcessor } from "./processor"
 
 export class NamuMark {
     wikiText: string;
@@ -17,7 +16,7 @@ export class NamuMark {
         html_escape: boolean;
     };
     textToken: string[];
-    bracketQueue: (
+    bracketStack: (
         | tagEnum.code_innerbracket_begin
         | tagEnum.text_sizing_begin
         | tagEnum.wiki_style_begin
@@ -40,7 +39,7 @@ export class NamuMark {
         this.htmlArray = [];
         // this.textTokenSyntax = ([] as string[]).concat(...Object.values(this.textToken))
         this.textToken = ["'''", "''", "--", "~~", "__", "^^", ",,"];
-        this.bracketQueue = [];
+        this.bracketStack = [];
         this.flags = {
             strong: false,
             italic: false,
@@ -68,7 +67,7 @@ export class NamuMark {
 
                 if (now == "\n") {
                     this.htmlArray.push(new HTMLTag(tagEnum.br));
-                    this.textEndlineProcessor();
+                    this.endlineProcessor();
                     this.flags = {
                         ...this.flags,
                         strong: false,
@@ -83,32 +82,32 @@ export class NamuMark {
                 }
                 
                 if (this.wikiText.substring(pos).startsWith("{{{")) {
-                    this.bracketOpenProcessor(pos, (v) => (pos = v));
+                    bracketOpenProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
                 
                 if (this.wikiText.substring(pos).startsWith("}}}")) {
-                    this.bracketCloseProcessor(pos, (v) => (pos = v));
+                    bracketCloseProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
                 
                 if (this.textToken.some((text) => this.wikiText.substring(pos).startsWith(text)) && this.flags.code == false) {
-                    this.textProcessor(pos, (v) => (pos = v));
+                    textProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
 
                 if (this.flags.html_escape) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.text, { isEscaped: true }, now));
+                    this.htmlArray.push(new HTMLTag(tagEnum.text, { toBeEscaped: true }, now));
                 } else {
-                    this.htmlArray.push(new HTMLTag(tagEnum.text, { isEscaped: false }, now));
+                    this.htmlArray.push(new HTMLTag(tagEnum.text, { toBeEscaped: false }, now));
                 }
             }
         }
-        this.textEndlineProcessor(true);
+        this.endlineProcessor(true);
         return this.arrayToHtmlString();
     }
 
-    textEndlineProcessor(isWikiTextEnd: boolean = false) {
+    endlineProcessor(isWikiTextEnd: boolean = false) {
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화
         if (this.flags.strong) {
             const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.strong_begin);
@@ -168,7 +167,7 @@ export class NamuMark {
 
         // wikiText가 끝났을 때 각종 bracket 무효화
         if (isWikiTextEnd) {
-            for (const queue of Array.from(this.bracketQueue).reverse()) {
+            for (const queue of Array.from(this.bracketStack).reverse()) {
                 if (queue == tagEnum.text_sizing_begin) {
                     const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
@@ -198,331 +197,6 @@ export class NamuMark {
                     this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
                 }
             }
-        }
-    }
-    textProcessor(pos: number, setPos: (v: number) => void) {
-        const wikiTextSincePos = this.wikiText.substring(pos);
-        const matchedSyntax = this.textToken.find((text) => wikiTextSincePos.startsWith(text));
-        let tag: tagEnum = tagEnum.holder;
-        let posIncrement: number = 0;
-        switch (matchedSyntax) {
-            case "'''":
-                if (this.flags.strong) {
-                    tag = tagEnum.strong_end;
-                    this.flags.strong = false;
-                } else {
-                    tag = tagEnum.strong_begin;
-                    this.flags.strong = true;
-                }
-                posIncrement = 2;
-                break;
-            case "''":
-                if (this.flags.italic) {
-                    tag = tagEnum.italic_end;
-                    this.flags.italic = false;
-                } else {
-                    tag = tagEnum.italic_begin;
-                    this.flags.italic = true;
-                }
-                posIncrement = 1;
-                break;
-            case "--":
-                if (this.flags.strike_underbar) {
-                    tag = tagEnum.strike_underbar_end;
-                    this.flags.strike_underbar = false;
-                } else {
-                    tag = tagEnum.strike_underbar_begin;
-                    this.flags.strike_underbar = true;
-                }
-                posIncrement = 1;
-                break;
-            case "~~":
-                if (this.flags.strike_wave) {
-                    tag = tagEnum.strike_wave_end;
-                    this.flags.strike_wave = false;
-                } else {
-                    tag = tagEnum.strike_wave_begin;
-                    this.flags.strike_wave = true;
-                }
-                posIncrement = 1;
-                break;
-            case "__":
-                if (this.flags.underline) {
-                    tag = tagEnum.underline_end;
-                    this.flags.underline = false;
-                } else {
-                    tag = tagEnum.underline_begin;
-                    this.flags.underline = true;
-                }
-                posIncrement = 1;
-                break;
-            case "^^":
-                if (this.flags.superscript) {
-                    tag = tagEnum.superscript_end;
-                    this.flags.superscript = false;
-                } else {
-                    tag = tagEnum.superscript_begin;
-                    this.flags.superscript = true;
-                }
-                posIncrement = 1;
-                break;
-            case ",,":
-                if (this.flags.subscript) {
-                    tag = tagEnum.subscript_end;
-                    this.flags.subscript = false;
-                } else {
-                    tag = tagEnum.subscript_begin;
-                    this.flags.subscript = true;
-                }
-                posIncrement = 1;
-                break;
-            default:
-                break;
-        }
-        this.htmlArray.push(new HTMLTag(tag, { originalText: matchedSyntax }));
-        setPos(pos + posIncrement);
-        return;
-    }
-    bracketOpenProcessor(pos: number, setPos: (v: number) => void) {
-        if (this.flags.code == false && this.flags.html_escape == true) {
-            const sizingRegex = /^(\+|-)([1-5])( |\n)/g;
-            const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g;
-            const htmlRegex = /^#!html/g;
-            const cssColor =
-                "black|gray|grey|silver|white|red|maroon|yellow|olive|lime|green|aqua|cyan|teal|blue|navy|magenta|fuchsia|purple|dimgray|dimgrey|darkgray|darkgrey|lightgray|lightgrey|gainsboro|whitesmoke|brown|darkred|firebrick|indianred|lightcoral|rosybrown|snow|mistyrose|salmon|tomato|darksalmon|coral|orangered|lightsalmon|sienna|seashell|chocolate|saddlebrown|sandybrown|peachpuff|peru|linen|bisque|darkorange|burlywood|anaatiquewhite|tan|navajowhite|blanchedalmond|papayawhip|moccasin|orange|wheat|oldlace|floralwhite|darkgoldenrod|goldenrod|cornsilk|gold|khaki|lemonchiffon|palegoldenrod|darkkhaki|beige|ivory|lightgoldenrodyellow|lightyellow|olivedrab|yellowgreen|darkolivegreen|greenyellow|chartreuse|lawngreen|darkgreen|darkseagreen|forestgreen|honeydew|lightgreen|limegreen|palegreen|seagreen|mediumseagreen|springgreen|mintcream|mediumspringgreen|mediumaquamarine|aquamarine|turquoise|lightseagreen|mediumturquoise|azure|darkcyan|darkslategray|darkslategrey|lightcyan|paleturquoise|darkturquoise|cadetblue|powderblue|lightblue|deepskyblue|skyblue|lightskyblue|steelblue|aliceblue|dodgerblue|lightslategray|lightslategrey|slategray|slategrey|lightsteelblue|comflowerblue|royalblue|darkblue|ghostwhite|lavender|mediumblue|midnightblue|slateblue|darkslateblue|mediumslateblue|mediumpurple|rebeccapurple|blueviolet|indigo|darkorchid|darkviolet|mediumorchid|darkmagenta|plum|thistle|violet|orchid|mediumvioletred|deeppink|hotpink|lavenderblush|palevioletred|crimson|pink|lightpink";
-            const hexCode = "(?:[0-9a-fA-F]{3}){1,2}";
-            const hexCodeRegex = /(?:[0-9a-fA-F]{3}){1,2}/g;
-            const textColorRegex = new RegExp(`^#(${cssColor}|${hexCode})(?:\,#(${cssColor}|${hexCode}))?( |\n)`, "g");
-            const hexCodeConvert = (hex: string) => {
-                const result = hexCodeRegex.test(hex);
-                hexCodeRegex.lastIndex = 0;
-                if (result) {
-                    return "#" + hex
-                }
-                return hex
-            }
-
-            if (sizingRegex.test(this.wikiText.substring(pos + 3))) {
-                sizingRegex.lastIndex = 0;
-                let size: string = "";
-                let sign: string = "";
-                let separator = undefined;
-                for (const match of this.wikiText.substring(pos + 3).matchAll(sizingRegex)) {
-                    sign = match[1];
-                    size = match[2];
-                    separator = match[3];
-                }
-                if (separator == "\n") {
-                    separator = "<br/>";
-                }
-                this.htmlArray.push(
-                    new HTMLTag(tagEnum.text_sizing_begin, { originalText: `{{{${sign}${size}${separator}`, isClosed: false }, undefined, {
-                        class: "size" + sign + size,
-                    })
-                );
-                this.bracketQueue.push(tagEnum.text_sizing_begin);
-                setPos(pos + `{{${sign}${size}S`.length);
-            } else if (textColorRegex.test(this.wikiText.substring(pos + 3))) {
-                textColorRegex.lastIndex = 0;
-                let color1 = undefined;
-                let color2 = undefined;
-                let separator = undefined;
-                for (const match of this.wikiText.substring(pos + 3).matchAll(textColorRegex)) {
-                    color1 = match[1];
-                    color2 = match[2];
-                    separator = match[3];
-                }
-                if (separator == "\n") {
-                    separator = "<br/>";
-                }
-
-                let parameter = {};
-                //테마에 따른 color style
-                if (color2 == undefined && color1 !== undefined) {
-                    parameter = { style: `color: ${hexCodeConvert(color1)}` };
-                }
-                if (color2 !== undefined && color1 !== undefined) {
-                    if (this.preset.theme == "DARK") {
-                        parameter = { style: `color: ${hexCodeConvert(color2)}` };
-                    } else {
-                        parameter = { style: `color: ${hexCodeConvert(color1)}` };
-                    }
-                }
-
-                if (color2 == undefined) {
-                    this.htmlArray.push(
-                        new HTMLTag(
-                            tagEnum.text_color_begin,
-                            { originalText: `{{{#${color1}${separator}`, isClosed: false, color: [color1, color2] },
-                            undefined,
-                            parameter
-                        )
-                    );
-                    setPos(pos + `{{#${color1}S`.length);
-                } else {
-                    this.htmlArray.push(
-                        new HTMLTag(
-                            tagEnum.text_color_begin,
-                            { originalText: `{{{#${color1},#${color2}${separator}`, isClosed: false, color: [color1, color2] },
-                            undefined,
-                            parameter
-                        )
-                    );
-                    setPos(pos + `{{#${color1},#${color2}S`.length);
-                }
-                this.bracketQueue.push(tagEnum.text_color_begin);
-                // {{{#fff,#fff
-            } else if (htmlRegex.test(this.wikiText.substring(pos + 3))) {
-                htmlRegex.lastIndex = 0;
-                this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_begin, { originalText: "{{{#!html", isClosed: false }));
-                this.bracketQueue.push(tagEnum.html_bracket_begin);
-                // {{{#!html
-                this.flags.html_escape = false;
-                setPos(pos + 8);
-            } else if (wikiStyleRegex.test(this.wikiText.substring(pos + 3))) {
-                wikiStyleRegex.lastIndex = 0;
-                let style: string = "";
-                for (const match of this.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
-                    style = match[1];
-                }
-                this.htmlArray.push(
-                    new HTMLTag(
-                        tagEnum.wiki_style_begin,
-                        { originalText: "{{{" + this.wikiText.substring(pos + 3, seekEOL(this.wikiText, pos + 3) + 1), isClosed: false },
-                        undefined,
-                        { style }
-                    )
-                );
-                this.bracketQueue.push(tagEnum.wiki_style_begin);
-                setPos(seekEOL(this.wikiText, pos + 3));
-            } else {
-                this.htmlArray.push(new HTMLTag(tagEnum.code_begin, { originalText: "{{{" }));
-                this.flags.code = true;
-                setPos(pos + 2);
-            }
-            return;
-        }
-
-        if (this.flags.code == true || this.flags.html_escape == false) {
-            this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_begin, { originalText: "{{{", isClosed: false }));
-            this.bracketQueue.push(tagEnum.code_innerbracket_begin);
-            setPos(pos + 2);
-            return;
-        }
-    }
-    bracketCloseProcessor(pos: number, setPos: (v: number) => void) {
-        // #!html 상태 또는 code bracket 상태의 innerbracket
-        if (
-            this.bracketQueue.length !== 0 &&
-            this.bracketQueue.at(-1) == tagEnum.code_innerbracket_begin &&
-            (this.flags.code == true || this.flags.html_escape == false)
-        ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false);
-            this.htmlArray[idx].property.isBracketClosed = true;
-            this.htmlArray.push(new HTMLTag(tagEnum.code_innerbracket_end, { originalText: "}}}" }));
-            this.bracketQueue.pop();
-            setPos(pos + 2);
-            return;
-        }
-
-        // #!html 상태 그리고 code bracket이 아닌 경우 #!html bracket 닫기
-        if (
-            this.bracketQueue.length !== 0 &&
-            this.bracketQueue.at(-1) == tagEnum.html_bracket_begin &&
-            this.flags.code == false &&
-            this.flags.html_escape == false
-        ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
-            this.htmlArray[idx].property.isBracketClosed = true;
-            this.htmlArray.push(new HTMLTag(tagEnum.html_bracket_end, { originalText: "}}}" }));
-            this.bracketQueue.pop();
-            this.flags.html_escape = true;
-            setPos(pos + 2);
-            return;
-        }
-
-        // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_sizing bracket 닫기
-        if (
-            this.bracketQueue.length !== 0 &&
-            this.bracketQueue.at(-1) == tagEnum.text_sizing_begin &&
-            this.flags.code == false &&
-            this.flags.html_escape == true
-        ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
-            this.htmlArray[idx].property.isBracketClosed = true;
-            this.htmlArray.push(new HTMLTag(tagEnum.text_sizing_end, { originalText: "}}}" }));
-            this.bracketQueue.pop();
-            setPos(pos + 2);
-            return;
-        }
-
-        // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_color bracket 닫기
-        if (
-            this.bracketQueue.length !== 0 &&
-            this.bracketQueue.at(-1) == tagEnum.text_color_begin &&
-            this.flags.code == false &&
-            this.flags.html_escape == true
-        ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_color_begin && v.property.isBracketClosed == false);
-            this.htmlArray[idx].property.isBracketClosed = true;
-            this.htmlArray.push(new HTMLTag(tagEnum.text_color_end, { originalText: "}}}" }));
-            this.bracketQueue.pop();
-            setPos(pos + 2);
-            return;
-        }
-
-        // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 wiki_style bracket 닫기
-        if (
-            this.bracketQueue.length !== 0 &&
-            this.bracketQueue.at(-1) == tagEnum.wiki_style_begin &&
-            this.flags.code == false &&
-            this.flags.html_escape == true
-        ) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
-            this.htmlArray[idx].property.isBracketClosed = true;
-            this.htmlArray.push(new HTMLTag(tagEnum.wiki_style_end, { originalText: "}}}" }));
-            this.bracketQueue.pop();
-            setPos(pos + 2);
-            return;
-        }
-
-        // #!html 상태가 아니고 그리고 code bracket 상태인 경우 code bracket 닫기
-        if (this.flags.code == true && this.flags.html_escape == true) {
-            this.htmlArray.push(new HTMLTag(tagEnum.code_end, { originalText: "}}}" }));
-            this.flags.code = false;
-            if (this.flags.code_multiline) {
-                this.htmlArray.push(new HTMLTag(tagEnum.code_multiline_end));
-                this.flags.code_multiline = false;
-            }
-            
-            const syntaxRegex = /^#!syntax (basic|cpp|csharp|css|erlang|go|java|javascript|json|kotlin|lisp|lua|markdown|objectivec|perl|php|powershell|python|ruby|rust|sh|sql|swift|typescript|xml)(.+)/gs;
-            const code_begin_idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_begin);
-            const code_end_idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_end);
-            let code_array = this.htmlArray.slice(code_begin_idx, code_end_idx + 1);
-            code_array.splice(0, 1);
-            code_array.splice(-1);
-            let code_content: string = "";
-            for (const value of code_array) {
-                code_content += value.toString(false, false);
-            }
-
-            if (syntaxRegex.test(code_content)) {
-                syntaxRegex.lastIndex = 0;
-                let language = "";
-                let content = "";
-                let converted = "";
-                for (const match of code_content.matchAll(syntaxRegex)) {
-                    language = match[1]
-                    content = match[2];
-                }
-                converted = hljs.highlight(content, {language}).value
-                this.htmlArray.splice(code_begin_idx + 1, code_array.length, new HTMLTag(tagEnum.text, {isEscaped: false}, converted))
-                // converted 결과 -> isEscaped: true로 시작, htmlArray [code_begin_idx, code_end_idx]
-                // TODO
-            }
-
-            setPos(pos + 2);
-            return;
         }
     }
 
@@ -689,7 +363,7 @@ export class NamuMark {
     }
 }
 
-enum tagEnum {
+export enum tagEnum {
     holder,
     text,
     plain_text,
@@ -726,7 +400,7 @@ enum tagEnum {
     text_color_end,
 }
 
-class HTMLTag {
+export class HTMLTag {
     tag: string[];
     tagEnum: tagEnum;
     content: string | undefined;
