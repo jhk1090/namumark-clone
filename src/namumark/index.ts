@@ -1,4 +1,4 @@
-import { bracketOpenProcessor, bracketCloseProcessor, textProcessor } from "./processor"
+import { bracketOpenProcessor, bracketCloseProcessor, textProcessor, titleProcessor } from "./processor"
 import seekEOL from "./seekEOL";
 
 export class NamuMark {
@@ -89,59 +89,7 @@ export class NamuMark {
                 }
                 
                 if (titleRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) && this.flags.is_line_start && this.flags.code == false) {
-                    titleRegex.lastIndex = 0;
-                    const result = Array.from(this.wikiText.substring(pos, seekEOL(this.wikiText, pos)).matchAll(titleRegex))[0].filter(v => v !== undefined);
-                    const titleToken = result[1];
-                    const content = result[2];
-
-                    const isFolded = titleToken.endsWith("#")
-                    let titleType: tagEnum = tagEnum.holder;
-                    let titleLevelThen: number[] = [];
-                    let titleLevelAt: number = 0;
-                    switch (titleToken) {
-                        case "=":
-                        case "=#":
-                            titleType = tagEnum.h1;
-                            this.titleLevel[0] += 1;
-                            titleLevelAt = 0
-                            break;
-                        case "==":
-                        case "==#":
-                            titleType = tagEnum.h2;
-                            this.titleLevel[1] += 1;
-                            titleLevelAt = 1
-                            break;
-                        case "===":
-                        case "===#":
-                            titleType = tagEnum.h3;
-                            this.titleLevel[2] += 1;
-                            titleLevelAt = 2
-                            break;
-                        case "====":
-                        case "====#":
-                            titleType = tagEnum.h4;
-                            this.titleLevel[3] += 1;
-                            titleLevelAt = 3
-                            break;
-                        case "=====":
-                        case "=====#":
-                            titleType = tagEnum.h5;
-                            this.titleLevel[4] += 1;
-                            titleLevelAt = 4
-                            break;
-                        case "======":
-                        case "======#":
-                            titleType = tagEnum.h6;
-                            this.titleLevel[5] += 1;
-                            titleLevelAt = 5
-                            break;
-                        default:
-                            break;
-                    }
-                    this.titleLevel.fill(0, titleLevelAt + 1); // title 밑에부분 초기화
-                    titleLevelThen = Array.from(this.titleLevel)
-                    this.htmlArray.push(new HTMLTag(titleType, { isFolded, titleLevelThen, titleLevelAt }, content, { isFolded: JSON.stringify(isFolded) }))
-                    pos += this.wikiText.substring(pos, seekEOL(this.wikiText, pos)).length;
+                    titleProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
 
