@@ -1,4 +1,5 @@
 import { bracketOpenProcessor, bracketCloseProcessor, textProcessor } from "./processor"
+import seekEOL from "./seekEOL";
 
 export class NamuMark {
     wikiText: string;
@@ -14,6 +15,7 @@ export class NamuMark {
         code: boolean;
         code_multiline: boolean;
         html_escape: boolean;
+        is_line_start: boolean;
     };
     textToken: string[];
     bracketStack: (
@@ -27,6 +29,7 @@ export class NamuMark {
         theme: "DARK" | "LIGHT";
         title: string;
     };
+    titleLevel: number[]
 
     constructor(
         wikiText: string,
@@ -51,11 +54,13 @@ export class NamuMark {
             code: false,
             code_multiline: false,
             html_escape: true,
+            is_line_start: true,
         };
         this.preset = {
             theme: options.theme,
             title: options.title,
         };
+        this.titleLevel = [0, 0, 0, 0, 0, 0];
     }
 
     parse() {
@@ -64,6 +69,7 @@ export class NamuMark {
         } else {
             for (let pos = 0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos];
+                const titleRegex = /^(?:(=) (.+) =|(==) (.+) ==|(===) (.+) ===|(====) (.+) ====|(=====) (.+) =====|(======) (.+) ======|(=#) (.+) #=|(==#) (.+) #==|(===#) (.+) #===|(====#) (.+) #====|(=====#) (.+) #=====|(======#) (.+) #======)$/g
 
                 if (now == "\n") {
                     this.htmlArray.push(new HTMLTag(tagEnum.br));
@@ -77,10 +83,68 @@ export class NamuMark {
                         underline: false,
                         superscript: false,
                         subscript: false,
+                        is_line_start: true,
                     };
                     continue;
                 }
                 
+                if (titleRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) && this.flags.is_line_start && this.flags.code == false) {
+                    titleRegex.lastIndex = 0;
+                    const result = Array.from(this.wikiText.substring(pos, seekEOL(this.wikiText, pos)).matchAll(titleRegex))[0].filter(v => v !== undefined);
+                    const titleToken = result[1];
+                    const content = result[2];
+
+                    const isFolded = titleToken.endsWith("#")
+                    let titleType: tagEnum = tagEnum.holder;
+                    let titleLevelThen: number[] = [];
+                    let titleLevelAt: number = 0;
+                    switch (titleToken) {
+                        case "=":
+                        case "=#":
+                            titleType = tagEnum.h1;
+                            this.titleLevel[0] += 1;
+                            titleLevelAt = 0
+                            break;
+                        case "==":
+                        case "==#":
+                            titleType = tagEnum.h2;
+                            this.titleLevel[1] += 1;
+                            titleLevelAt = 1
+                            break;
+                        case "===":
+                        case "===#":
+                            titleType = tagEnum.h3;
+                            this.titleLevel[2] += 1;
+                            titleLevelAt = 2
+                            break;
+                        case "====":
+                        case "====#":
+                            titleType = tagEnum.h4;
+                            this.titleLevel[3] += 1;
+                            titleLevelAt = 3
+                            break;
+                        case "=====":
+                        case "=====#":
+                            titleType = tagEnum.h5;
+                            this.titleLevel[4] += 1;
+                            titleLevelAt = 4
+                            break;
+                        case "======":
+                        case "======#":
+                            titleType = tagEnum.h6;
+                            this.titleLevel[5] += 1;
+                            titleLevelAt = 5
+                            break;
+                        default:
+                            break;
+                    }
+                    this.titleLevel.fill(0, titleLevelAt + 1); // title 밑에부분 초기화
+                    titleLevelThen = Array.from(this.titleLevel)
+                    this.htmlArray.push(new HTMLTag(titleType, { isFolded, titleLevelThen, titleLevelAt }, content, { isFolded: JSON.stringify(isFolded) }))
+                    pos += this.wikiText.substring(pos, seekEOL(this.wikiText, pos)).length;
+                    continue;
+                }
+
                 if (this.wikiText.substring(pos).startsWith("{{{")) {
                     bracketOpenProcessor(this, pos, (v) => (pos = v));
                     continue;
@@ -101,6 +165,8 @@ export class NamuMark {
                 } else {
                     this.htmlArray.push(new HTMLTag(tagEnum.text, { toBeEscaped: false }, now));
                 }
+
+                this.flags.is_line_start = false;
             }
         }
         this.endlineProcessor(true);
@@ -355,7 +421,7 @@ export class NamuMark {
         let htmlString = "";
         for (const tag of this.htmlArray) {
             // console.log(tag);
-            htmlString += tag.toString();
+            htmlString += tag.toString(true, true, this.titleLevel);
         }
         console.log(htmlString);
 
@@ -398,6 +464,12 @@ export enum tagEnum {
     br,
     text_color_begin,
     text_color_end,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6
 }
 
 export class HTMLTag {
@@ -411,6 +483,9 @@ export class HTMLTag {
         originalText?: string;
         toBeEscaped?: boolean;
         isBracketClosed?: boolean;
+        isFolded?: boolean;
+        titleLevelThen?: (number[] | undefined);
+        titleLevelAt?: (number[] | undefined);
     };
 
     constructor(
@@ -498,12 +573,24 @@ export class HTMLTag {
                 return ["<span@>"];
             case tagEnum.text_color_end:
                 return ["</span>"];
+            case tagEnum.h1:
+                return ["<h1@>", "</h1>"]
+            case tagEnum.h2:
+                return ["<h2@>", "</h2>"]
+            case tagEnum.h3:
+                return ["<h3@>", "</h3>"]
+            case tagEnum.h4:
+                return ["<h4@>", "</h4>"]
+            case tagEnum.h5:
+                return ["<h5@>", "</h5>"]
+            case tagEnum.h6:
+                return ["<h6@>", "</h6>"]
             default:
                 return ["", ""];
         }
     }
 
-    toString(forceEscaped: boolean = true, isNewlineReplaced: boolean = true) {
+    toString(forceEscaped: boolean = true, isNewlineReplaced: boolean = true, titleLevel: number[] = []) {
         let parameter = "";
         for (const pair of Object.entries(this.parameter)) {
             if (pair[1] == "") continue;
@@ -527,6 +614,11 @@ export class HTMLTag {
             if (map[this.content] != undefined) {
                 this.content = map[this.content];
             }
+        }
+        if (this.property.titleLevelThen !== undefined && this.property.titleLevelAt !== undefined && this.content !== undefined) {
+            let topLevel = titleLevel.findIndex(v => v !== 0);
+            let titleHeaderContent = this.property.titleLevelThen.slice(topLevel, this.property.titleLevelThen.findLastIndex(v => v !== 0) + 1).join(".");
+            return this.tag[0] + `<a id="${titleHeaderContent}">${titleHeaderContent + "."}</a><span id=\"${this.content}\">` + this.content + "</span>" + this.tag[1];
         }
 
         // br 태그 방지용
