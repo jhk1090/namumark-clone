@@ -48,6 +48,10 @@ class Tag {}
 export class TextTag extends Tag {
     escape: boolean;
     content: string;
+    /**
+     * @param {string} content 문자열 값
+     * @param {boolean} escape 문자열을 이스케이프 할 지 여부
+     */
     constructor(content: string, escape: boolean) {
         super();
         this.content = content;
@@ -76,6 +80,11 @@ export class HolderTag extends Tag {
     property: {
         [k: string]: any;
     }
+    /**
+     * @param {HolderEnum} holderEnum 표시자 유형
+     * @param {string} alt 표시자의 원 문자열
+     * @param {{}} property HTML 속성
+     */
     constructor(holderEnum: HolderEnum, alt: string, property: { [k: string]: any } = {}) {
         super();
         this.holderEnum = holderEnum;
@@ -90,6 +99,11 @@ export class RegularTag extends Tag {
     property: {
         [k: string]: any;
     }
+    /**
+     * @param {TagEnum} tagEnum 태그 유형
+     * @param {Tag[]} children 태그의 자식들
+     * @param {{}} property HTML 속성
+     */
     constructor(tagEnum: TagEnum, children: Tag[], property: { [k: string]: any } = {}) {
         super();
         this.tagEnum = tagEnum;
@@ -135,6 +149,10 @@ export class SingularTag extends Tag {
     property: {
         [k: string]: any;
     }
+    /**
+     * @param {TagEnum} tagEnum 태그 유형
+     * @param {{}} property HTML 속성
+     */
     constructor(tagEnum: TagEnum, property: { [k: string]: any } = {}) {
         super();
         this.tagEnum = tagEnum;
@@ -160,6 +178,12 @@ export class SingularTag extends Tag {
 export class TitleTag extends RegularTag {
     titleLevelThen: number[];
 
+    /**
+     * @param {TagEnum} tagEnum 태그 유형
+     * @param {Tag[]} children 태그의 자식들
+     * @param {number[]} titleLevelThen 저장 당시 titleLevel
+     * @param {{}} property HTML 속성
+     */
     constructor(tagEnum: TagEnum, children: Tag[], titleLevelThen: number[], property: { [k: string]: any } = {}) {
         super(tagEnum, children, property);
         this.titleLevelThen = titleLevelThen;
