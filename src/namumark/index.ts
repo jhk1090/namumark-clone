@@ -1,6 +1,6 @@
-import { bracketOpenProcessor, bracketCloseProcessor, textProcessor, titleProcessor } from "./processor";
+import { bracketOpenProcessor, bracketCloseProcessor, textProcessor, headingOpenProcessor, headingCloseProcessor } from "./processor";
 import seekEOL from "./seekEOL";
-import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, TitleTag } from "./parts";
+import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, HeadingTag } from "./parts";
 
 export class NamuMark {
     wikiText: string;
@@ -15,16 +15,21 @@ export class NamuMark {
         subscript: boolean;
         code: boolean;
         code_multiline: boolean;
+        heading: boolean;
+        heading_attribute: ({
+            isFolded: boolean;
+            headingLevelAt: number;
+        } | undefined);
         html_escape: boolean;
         is_line_start: boolean;
     };
     textToken: string[];
-    bracketStack: (HolderEnum.code_innerbracket | HolderEnum.text_sizing | HolderEnum.wiki_style | HolderEnum.html_bracket | HolderEnum.text_color)[];
+    wikiStack: (HolderEnum.code_innerbracket | HolderEnum.text_sizing | HolderEnum.wiki_style | HolderEnum.html_bracket | HolderEnum.text_color | HolderEnum.h1 | HolderEnum.h2 | HolderEnum.h3 | HolderEnum.h4 | HolderEnum.h5 | HolderEnum.h6)[];
     preset: {
         theme: "DARK" | "LIGHT";
         title: string;
     };
-    titleLevel: number[];
+    headingLevel: number[];
 
     constructor(
         wikiText: string,
@@ -37,7 +42,7 @@ export class NamuMark {
         this.htmlArray = [];
         // this.textTokenSyntax = ([] as string[]).concat(...Object.values(this.textToken))
         this.textToken = ["'''", "''", "--", "~~", "__", "^^", ",,"];
-        this.bracketStack = [];
+        this.wikiStack = [];
         this.flags = {
             strong: false,
             italic: false,
@@ -48,6 +53,8 @@ export class NamuMark {
             subscript: false,
             code: false,
             code_multiline: false,
+            heading: false,
+            heading_attribute: undefined,
             html_escape: true,
             is_line_start: true,
         };
@@ -55,7 +62,7 @@ export class NamuMark {
             theme: options.theme,
             title: options.title,
         };
-        this.titleLevel = [0, 0, 0, 0, 0, 0];
+        this.headingLevel = [0, 0, 0, 0, 0, 0];
     }
 
     parse() {
@@ -64,8 +71,8 @@ export class NamuMark {
         } else {
             for (let pos = 0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos];
-                const titleRegex =
-                    /^(?:(=) (.+) =|(==) (.+) ==|(===) (.+) ===|(====) (.+) ====|(=====) (.+) =====|(======) (.+) ======|(=#) (.+) #=|(==#) (.+) #==|(===#) (.+) #===|(====#) (.+) #====|(=====#) (.+) #=====|(======#) (.+) #======)$/g;
+                const headingStartRegex = /^(?:= |== |=== |==== |===== |====== |=# |==# |===# |====# |=====# |======# )/g;
+                const headingEndRegex = /^(?: =| ==| ===| ====| =====| ======| #=| #==| #===| #====| #=====| #======)$/g;
 
                 if (now == "\n") {
                     this.htmlArray.push(new SingularTag(TagEnum.BR));
@@ -80,16 +87,19 @@ export class NamuMark {
                         superscript: false,
                         subscript: false,
                         is_line_start: true,
+                        heading: false,
+                        heading_attribute: undefined,
                     };
                     continue;
                 }
 
-                if (
-                    titleRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) &&
-                    this.flags.is_line_start &&
-                    this.flags.code == false
-                ) {
-                    titleProcessor(this, pos, (v) => (pos = v));
+                if (headingStartRegex.test(this.wikiText.substring(pos)) && this.flags.is_line_start && this.flags.code == false && this.flags.heading == false) {
+                    headingOpenProcessor(this, pos, v => pos = v);
+                    continue;
+                }
+
+                if (headingEndRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) && this.flags.code == false && this.flags.heading && this.flags.heading_attribute !== undefined) {
+                    headingCloseProcessor(this, pos, v => pos = v);
                     continue;
                 }
 
@@ -162,6 +172,13 @@ export class NamuMark {
         }
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화 (끝)
 
+        // heading 처리기
+        if (this.flags.heading) {
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.property.headingLevelAt !== undefined);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
+        }
+
         // code가 줄바꿈 시 <code> -> <pre><code>로 변환
         if (this.flags.code && !isWikiTextEnd && !this.flags.code_multiline) {
             const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
@@ -182,7 +199,7 @@ export class NamuMark {
 
         // wikiText가 끝났을 때 각종 bracket 무효화
         if (isWikiTextEnd) {
-            for (const elem of Array.from(this.bracketStack).reverse()) {
+            for (const elem of Array.from(this.wikiStack).reverse()) {
                 const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === elem);
                 const text: string = (this.htmlArray[idx] as HolderTag).alt;
                 this.htmlArray.splice(idx, 1, new TextTag(text, true));

@@ -1,3 +1,3 @@
 export { bracketOpenProcessor, bracketCloseProcessor } from "./bracketProcessor";
 export { textProcessor } from "./textProcessor";
-export { titleProcessor } from "./titleProcessor";
+export { headingCloseProcessor, headingOpenProcessor } from "./headingProcessor";

@@ -15,7 +15,13 @@ export enum HolderEnum {
     italic,
     superscript,
     subscript,
-    underline
+    underline,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6
 }
 
 export enum TagEnum {
@@ -175,18 +181,18 @@ export class SingularTag extends Tag {
     }
 }
 
-export class TitleTag extends RegularTag {
-    titleLevelThen: number[];
+export class HeadingTag extends RegularTag {
+    headingLevelThen: number[];
 
     /**
      * @param {TagEnum} tagEnum 태그 유형
      * @param {Tag[]} children 태그의 자식들
-     * @param {number[]} titleLevelThen 저장 당시 titleLevel
+     * @param {number[]} headingLevelThen 저장 당시 headingLevel
      * @param {{}} property HTML 속성
      */
-    constructor(tagEnum: TagEnum, children: Tag[], titleLevelThen: number[], property: { [k: string]: any } = {}) {
+    constructor(tagEnum: TagEnum, children: Tag[], headingLevelThen: number[], property: { [k: string]: any } = {}) {
         super(tagEnum, children, property);
-        this.titleLevelThen = titleLevelThen;
+        this.headingLevelThen = headingLevelThen;
     }
 
     toString(mark: NamuMark): string {
@@ -201,14 +207,14 @@ export class TitleTag extends RegularTag {
             }
         }
         
-        let topLevel = mark.titleLevel.findIndex((v) => v !== 0);
-        let titleHeaderContent = this.titleLevelThen
-            .slice(topLevel, this.titleLevelThen.findLastIndex((v) => v !== 0) + 1)
+        let topLevel = mark.headingLevel.findIndex((v) => v !== 0);
+        let headingHeaderContent = this.headingLevelThen
+            .slice(topLevel, this.headingLevelThen.findLastIndex((v) => v !== 0) + 1)
             .join(".");
 
         const openTag = `<${this.tagEnum}${property}>`
         const closeTag = `</${this.tagEnum}>`
-        const headerLink = new RegularTag(TagEnum.A, [new TextTag(titleHeaderContent + ".", true)], {id: "s-" + titleHeaderContent})
+        const headerLink = new RegularTag(TagEnum.A, [new TextTag(headingHeaderContent + ".", true)], {id: "s-" + headingHeaderContent})
         let content: string = "";
         for (const child of this.children) {
             if (child instanceof TextTag) {
@@ -225,7 +231,7 @@ export class TitleTag extends RegularTag {
                 continue;
             }
         }
-        const headerContent = new RegularTag(TagEnum.SPAN, [new TextTag(content, true)], {id: content})
+        const headerContent = new RegularTag(TagEnum.SPAN, [new TextTag(content, false)]/* , {id: content} */)
         return openTag + headerLink.toString(mark) + headerContent.toString(mark) + closeTag;
     }
 }

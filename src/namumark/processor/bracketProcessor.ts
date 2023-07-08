@@ -1,5 +1,5 @@
 import { NamuMark } from "..";
-import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, TitleTag } from "../parts";
+import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, HeadingTag } from "../parts";
 import seekEOL from "../seekEOL";
 import hljs from "highlight.js"
 
@@ -34,7 +34,7 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
             }
 
             mark.htmlArray.push(new HolderTag(HolderEnum.text_sizing, `{{{${sign}${size}${separator}`, { class: `size${sign}${size}` }));
-            mark.bracketStack.push(HolderEnum.text_sizing);
+            mark.wikiStack.push(HolderEnum.text_sizing);
             setPos(pos + `{{${sign}${size}S`.length);
         } else if (textColorRegex.test(mark.wikiText.substring(pos + 3))) {
             textColorRegex.lastIndex = 0;
@@ -67,12 +67,12 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
                 mark.htmlArray.push(new HolderTag(HolderEnum.text_color, `{{{#${color1},#${color2}${separator}`, parameter));
                 setPos(pos + `{{#${color1},#${color2}S`.length);
             }
-            mark.bracketStack.push(HolderEnum.text_color);
+            mark.wikiStack.push(HolderEnum.text_color);
             // {{{#fff,#fff
         } else if (htmlRegex.test(mark.wikiText.substring(pos + 3))) {
             htmlRegex.lastIndex = 0;
             mark.htmlArray.push(new HolderTag(HolderEnum.html_bracket, "{{{#!html"))
-            mark.bracketStack.push(HolderEnum.html_bracket);
+            mark.wikiStack.push(HolderEnum.html_bracket);
             // {{{#!html
             mark.flags.html_escape = false;
             setPos(pos + 8);
@@ -85,7 +85,7 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
             mark.htmlArray.push(
                 new HolderTag(HolderEnum.wiki_style, `{{{${mark.wikiText.substring(pos + 3, seekEOL(mark.wikiText, pos + 3) + 1)}`, { style })
             );
-            mark.bracketStack.push(HolderEnum.wiki_style);
+            mark.wikiStack.push(HolderEnum.wiki_style);
             setPos(seekEOL(mark.wikiText, pos + 3));
         } else {
             mark.htmlArray.push(new HolderTag(HolderEnum.code, "{{{"));
@@ -97,7 +97,7 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
 
     if (mark.flags.code == true || mark.flags.html_escape == false) {
         mark.htmlArray.push(new HolderTag(HolderEnum.code_innerbracket, "{{{"));
-        mark.bracketStack.push(HolderEnum.code_innerbracket);
+        mark.wikiStack.push(HolderEnum.code_innerbracket);
         setPos(pos + 2);
         return;
     }
@@ -106,22 +106,22 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
 export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: number) => void) {
     // #!html 상태 또는 code bracket 상태의 innerbracket
     if (
-        mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == HolderEnum.code_innerbracket &&
+        mark.wikiStack.length !== 0 &&
+        mark.wikiStack.at(-1) == HolderEnum.code_innerbracket &&
         (mark.flags.code == true || mark.flags.html_escape == false)
     ) {
         const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.code_innerbracket);
         mark.htmlArray[idx] = new TextTag("{{{", false);
         mark.htmlArray.push(new TextTag("}}}", false));
-        mark.bracketStack.pop();
+        mark.wikiStack.pop();
         setPos(pos + 2);
         return;
     }
 
     // #!html 상태 그리고 code bracket이 아닌 경우 #!html bracket 닫기
     if (
-        mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == HolderEnum.html_bracket &&
+        mark.wikiStack.length !== 0 &&
+        mark.wikiStack.at(-1) == HolderEnum.html_bracket &&
         mark.flags.code == false &&
         mark.flags.html_escape == false
     ) {
@@ -133,7 +133,7 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
             child.escape = false;
         }
         mark.htmlArray.push(new RegularTag(TagEnum.html_bracket, children, property));
-        mark.bracketStack.pop();
+        mark.wikiStack.pop();
         mark.flags.html_escape = true;
         setPos(pos + 2);
         return;
@@ -141,8 +141,8 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
 
     // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_sizing bracket 닫기
     if (
-        mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == HolderEnum.text_sizing &&
+        mark.wikiStack.length !== 0 &&
+        mark.wikiStack.at(-1) == HolderEnum.text_sizing &&
         mark.flags.code == false &&
         mark.flags.html_escape == true
     ) {
@@ -151,15 +151,15 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
         mark.htmlArray.splice(idx, 1)
         const children = mark.htmlArray.splice(idx);
         mark.htmlArray.push(new RegularTag(TagEnum.text_sizing, children, property));
-        mark.bracketStack.pop();
+        mark.wikiStack.pop();
         setPos(pos + 2);
         return;
     }
 
     // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_color bracket 닫기
     if (
-        mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == HolderEnum.text_color &&
+        mark.wikiStack.length !== 0 &&
+        mark.wikiStack.at(-1) == HolderEnum.text_color &&
         mark.flags.code == false &&
         mark.flags.html_escape == true
     ) {
@@ -168,15 +168,15 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
         mark.htmlArray.splice(idx, 1)
         const children = mark.htmlArray.splice(idx);
         mark.htmlArray.push(new RegularTag(TagEnum.text_color, children, property));
-        mark.bracketStack.pop();
+        mark.wikiStack.pop();
         setPos(pos + 2);
         return;
     }
 
     // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 wiki_style bracket 닫기
     if (
-        mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == HolderEnum.wiki_style &&
+        mark.wikiStack.length !== 0 &&
+        mark.wikiStack.at(-1) == HolderEnum.wiki_style &&
         mark.flags.code == false &&
         mark.flags.html_escape == true
     ) {
@@ -185,7 +185,7 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
         mark.htmlArray.splice(idx, 1)
         const children = mark.htmlArray.splice(idx);
         mark.htmlArray.push(new RegularTag(TagEnum.wiki_style, children, property));
-        mark.bracketStack.pop();
+        mark.wikiStack.pop();
         setPos(pos + 2);
         return;
     }

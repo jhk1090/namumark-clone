@@ -78,3 +78,23 @@ span[class="size+5"] {
 code {
     font-family: monospace;
 }
+
+.heading {
+    display: block;
+    margin-block-start: 0.83em;
+    margin-block-end: 0.83em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: bold;
+    border-bottom: 1px solid #ccc;
+    margin: 1.2em 0 .8em;
+    padding-bottom: 5px;
+}
+
+.heading > a {
+    color: #0275d8;
+}
+
+.heading > a:hover {
+    text-decoration: underline;
+}
