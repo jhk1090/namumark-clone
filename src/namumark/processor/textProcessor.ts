@@ -1,77 +1,85 @@
-import { NamuMark, D_tagEnum, D_HTMLTag } from ".."
+import { NamuMark, HolderEnum, TagEnum, HolderTag, TextTag, RegularTag, SingularTag } from "..";
 
 export function textProcessor(mark: NamuMark, pos: number, setPos: (v: number) => void) {
     const wikiTextSincePos = mark.wikiText.substring(pos);
-    const matchedSyntax = mark.textToken.find((text) => wikiTextSincePos.startsWith(text));
-    let tag: D_tagEnum = D_tagEnum.holder;
+    const matchedSyntax: string = mark.textToken.find((text) => wikiTextSincePos.startsWith(text)) as string;
+    const endProcessor = (holder: HolderEnum, tag: TagEnum) => {
+        const idx = mark.htmlArray.findLastIndex(v =>  v instanceof HolderTag && v.holderEnum == holder);
+        const property = (mark.htmlArray[idx] as HolderTag).property
+        const children = mark.htmlArray.splice(idx);
+        mark.htmlArray.push(new RegularTag(tag, children, property))
+    }
+    const beginProcessor = (holder: HolderEnum) => {
+        mark.htmlArray.push(new HolderTag(holder, matchedSyntax));
+    }
     let posIncrement: number = 0;
     switch (matchedSyntax) {
         case "'''":
             if (mark.flags.strong) {
-                tag = D_tagEnum.strong_end;
+                endProcessor(HolderEnum.strong, TagEnum.strong);
                 mark.flags.strong = false;
             } else {
-                tag = D_tagEnum.strong_begin;
+                beginProcessor(HolderEnum.strong)
                 mark.flags.strong = true;
             }
             posIncrement = 2;
             break;
         case "''":
             if (mark.flags.italic) {
-                tag = D_tagEnum.italic_end;
+                endProcessor(HolderEnum.italic, TagEnum.italic)
                 mark.flags.italic = false;
             } else {
-                tag = D_tagEnum.italic_begin;
+                beginProcessor(HolderEnum.italic)
                 mark.flags.italic = true;
             }
             posIncrement = 1;
             break;
         case "--":
             if (mark.flags.strike_underbar) {
-                tag = D_tagEnum.strike_underbar_end;
+                endProcessor(HolderEnum.strike_underbar, TagEnum.strike)
                 mark.flags.strike_underbar = false;
             } else {
-                tag = D_tagEnum.strike_underbar_begin;
+                beginProcessor(HolderEnum.strike_underbar)
                 mark.flags.strike_underbar = true;
             }
             posIncrement = 1;
             break;
         case "~~":
             if (mark.flags.strike_wave) {
-                tag = D_tagEnum.strike_wave_end;
+                endProcessor(HolderEnum.strike_wave, TagEnum.strike)
                 mark.flags.strike_wave = false;
             } else {
-                tag = D_tagEnum.strike_wave_begin;
+                beginProcessor(HolderEnum.strike_wave)
                 mark.flags.strike_wave = true;
             }
             posIncrement = 1;
             break;
         case "__":
             if (mark.flags.underline) {
-                tag = D_tagEnum.underline_end;
+                endProcessor(HolderEnum.underline, TagEnum.underline)
                 mark.flags.underline = false;
             } else {
-                tag = D_tagEnum.underline_begin;
+                beginProcessor(HolderEnum.underline)
                 mark.flags.underline = true;
             }
             posIncrement = 1;
             break;
         case "^^":
             if (mark.flags.superscript) {
-                tag = D_tagEnum.superscript_end;
+                endProcessor(HolderEnum.superscript, TagEnum.superscript)
                 mark.flags.superscript = false;
             } else {
-                tag = D_tagEnum.superscript_begin;
+                beginProcessor(HolderEnum.superscript)
                 mark.flags.superscript = true;
             }
             posIncrement = 1;
             break;
         case ",,":
             if (mark.flags.subscript) {
-                tag = D_tagEnum.subscript_end;
+                endProcessor(HolderEnum.subscript, TagEnum.subscript)
                 mark.flags.subscript = false;
             } else {
-                tag = D_tagEnum.subscript_begin;
+                beginProcessor(HolderEnum.subscript)
                 mark.flags.subscript = true;
             }
             posIncrement = 1;
@@ -79,7 +87,6 @@ export function textProcessor(mark: NamuMark, pos: number, setPos: (v: number) =
         default:
             break;
     }
-    mark.htmlArray.push(new D_HTMLTag(tag, { originalText: matchedSyntax }));
     setPos(pos + posIncrement);
     return;
 }

@@ -1,4 +1,4 @@
-import { NamuMark, D_tagEnum, D_HTMLTag } from "..";
+import { NamuMark, HolderEnum, TagEnum, HolderTag, TextTag, RegularTag, SingularTag } from "..";
 import seekEOL from "../seekEOL";
 import hljs from "highlight.js"
 
@@ -16,10 +16,10 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
             const result = hexCodeRegex.test(hex);
             hexCodeRegex.lastIndex = 0;
             if (result) {
-                return "#" + hex
+                return "#" + hex;
             }
-            return hex
-        }
+            return hex;
+        };
 
         if (sizingRegex.test(mark.wikiText.substring(pos + 3))) {
             sizingRegex.lastIndex = 0;
@@ -31,15 +31,9 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
                 size = match[2];
                 separator = match[3];
             }
-            if (separator == "\n") {
-                separator = "<br/>";
-            }
-            mark.htmlArray.push(
-                new D_HTMLTag(D_tagEnum.text_sizing_begin, { originalText: `{{{${sign}${size}${separator}`, isBracketClosed: false }, undefined, {
-                    class: "size" + sign + size,
-                })
-            );
-            mark.bracketStack.push(D_tagEnum.text_sizing_begin);
+
+            mark.htmlArray.push(new HolderTag(HolderEnum.text_sizing, `{{{${sign}${size}${separator}`, { class: `size${sign}${size}` }));
+            mark.bracketStack.push(HolderEnum.text_sizing);
             setPos(pos + `{{${sign}${size}S`.length);
         } else if (textColorRegex.test(mark.wikiText.substring(pos + 3))) {
             textColorRegex.lastIndex = 0;
@@ -50,9 +44,6 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
                 color1 = match[1];
                 color2 = match[2];
                 separator = match[3];
-            }
-            if (separator == "\n") {
-                separator = "<br/>";
             }
 
             let parameter = {};
@@ -69,32 +60,18 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
             }
 
             if (color2 == undefined) {
-                mark.htmlArray.push(
-                    new D_HTMLTag(
-                        D_tagEnum.text_color_begin,
-                        { originalText: `{{{#${color1}${separator}`, isBracketClosed: false, color: [color1, color2] },
-                        undefined,
-                        parameter
-                    )
-                );
+                mark.htmlArray.push(new HolderTag(HolderEnum.text_color, `{{{#${color1}${separator}`, parameter));
                 setPos(pos + `{{#${color1}S`.length);
             } else {
-                mark.htmlArray.push(
-                    new D_HTMLTag(
-                        D_tagEnum.text_color_begin,
-                        { originalText: `{{{#${color1},#${color2}${separator}`, isBracketClosed: false, color: [color1, color2] },
-                        undefined,
-                        parameter
-                    )
-                );
+                mark.htmlArray.push(new HolderTag(HolderEnum.text_color, `{{{#${color1},#${color2}${separator}`, parameter));
                 setPos(pos + `{{#${color1},#${color2}S`.length);
             }
-            mark.bracketStack.push(D_tagEnum.text_color_begin);
+            mark.bracketStack.push(HolderEnum.text_color);
             // {{{#fff,#fff
         } else if (htmlRegex.test(mark.wikiText.substring(pos + 3))) {
             htmlRegex.lastIndex = 0;
-            mark.htmlArray.push(new D_HTMLTag(D_tagEnum.html_bracket_begin, { originalText: "{{{#!html", isBracketClosed: false }));
-            mark.bracketStack.push(D_tagEnum.html_bracket_begin);
+            mark.htmlArray.push(new HolderTag(HolderEnum.html_bracket, "{{{#!html"))
+            mark.bracketStack.push(HolderEnum.html_bracket);
             // {{{#!html
             mark.flags.html_escape = false;
             setPos(pos + 8);
@@ -105,17 +82,12 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
                 style = match[1];
             }
             mark.htmlArray.push(
-                new D_HTMLTag(
-                    D_tagEnum.wiki_style_begin,
-                    { originalText: "{{{" + mark.wikiText.substring(pos + 3, seekEOL(mark.wikiText, pos + 3) + 1), isBracketClosed: false },
-                    undefined,
-                    { style }
-                )
+                new HolderTag(HolderEnum.wiki_style, `{{{${mark.wikiText.substring(pos + 3, seekEOL(mark.wikiText, pos + 3) + 1)}`, { style })
             );
-            mark.bracketStack.push(D_tagEnum.wiki_style_begin);
+            mark.bracketStack.push(HolderEnum.wiki_style);
             setPos(seekEOL(mark.wikiText, pos + 3));
         } else {
-            mark.htmlArray.push(new D_HTMLTag(D_tagEnum.code_begin, { originalText: "{{{" }));
+            mark.htmlArray.push(new HolderTag(HolderEnum.code, "{{{"));
             mark.flags.code = true;
             setPos(pos + 2);
         }
@@ -123,8 +95,8 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
     }
 
     if (mark.flags.code == true || mark.flags.html_escape == false) {
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.code_innerbracket_begin, { originalText: "{{{", isBracketClosed: false }));
-        mark.bracketStack.push(D_tagEnum.code_innerbracket_begin);
+        mark.htmlArray.push(new HolderTag(HolderEnum.code_innerbracket, "{{{"));
+        mark.bracketStack.push(HolderEnum.code_innerbracket);
         setPos(pos + 2);
         return;
     }
@@ -134,12 +106,12 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     // #!html 상태 또는 code bracket 상태의 innerbracket
     if (
         mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == D_tagEnum.code_innerbracket_begin &&
+        mark.bracketStack.at(-1) == HolderEnum.code_innerbracket &&
         (mark.flags.code == true || mark.flags.html_escape == false)
     ) {
-        const idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false);
-        mark.htmlArray[idx].property.isBracketClosed = true;
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.code_innerbracket_end, { originalText: "}}}" }));
+        const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.code_innerbracket);
+        mark.htmlArray[idx] = new TextTag("{{{", false);
+        mark.htmlArray.push(new TextTag("}}}", false));
         mark.bracketStack.pop();
         setPos(pos + 2);
         return;
@@ -148,13 +120,17 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     // #!html 상태 그리고 code bracket이 아닌 경우 #!html bracket 닫기
     if (
         mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == D_tagEnum.html_bracket_begin &&
+        mark.bracketStack.at(-1) == HolderEnum.html_bracket &&
         mark.flags.code == false &&
         mark.flags.html_escape == false
     ) {
-        const idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
-        mark.htmlArray[idx].property.isBracketClosed = true;
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.html_bracket_end, { originalText: "}}}" }));
+        const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.html_bracket)
+        const property = (mark.htmlArray[idx] as HolderTag).property
+        const children: TextTag[] = mark.htmlArray.splice(idx) as TextTag[]
+        for (const child of children) {
+            child.escape = false;
+        }
+        mark.htmlArray.push(new RegularTag(TagEnum.html_bracket, children, property));
         mark.bracketStack.pop();
         mark.flags.html_escape = true;
         setPos(pos + 2);
@@ -164,13 +140,14 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_sizing bracket 닫기
     if (
         mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == D_tagEnum.text_sizing_begin &&
+        mark.bracketStack.at(-1) == HolderEnum.text_sizing &&
         mark.flags.code == false &&
         mark.flags.html_escape == true
     ) {
-        const idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
-        mark.htmlArray[idx].property.isBracketClosed = true;
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.text_sizing_end, { originalText: "}}}" }));
+        const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.text_sizing);
+        const property = (mark.htmlArray[idx] as HolderTag).property
+        const children = mark.htmlArray.splice(idx);
+        mark.htmlArray.push(new RegularTag(TagEnum.text_sizing, children, property));
         mark.bracketStack.pop();
         setPos(pos + 2);
         return;
@@ -179,13 +156,14 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 text_color bracket 닫기
     if (
         mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == D_tagEnum.text_color_begin &&
+        mark.bracketStack.at(-1) == HolderEnum.text_color &&
         mark.flags.code == false &&
         mark.flags.html_escape == true
     ) {
-        const idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.text_color_begin && v.property.isBracketClosed == false);
-        mark.htmlArray[idx].property.isBracketClosed = true;
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.text_color_end, { originalText: "}}}" }));
+        const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.text_color);
+        const property = (mark.htmlArray[idx] as HolderTag).property
+        const children = mark.htmlArray.splice(idx);
+        mark.htmlArray.push(new RegularTag(TagEnum.text_color, children, property));
         mark.bracketStack.pop();
         setPos(pos + 2);
         return;
@@ -194,13 +172,14 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     // #!html 상태가 아니고 그리고 code bracket이 아닌 경우 wiki_style bracket 닫기
     if (
         mark.bracketStack.length !== 0 &&
-        mark.bracketStack.at(-1) == D_tagEnum.wiki_style_begin &&
+        mark.bracketStack.at(-1) == HolderEnum.wiki_style &&
         mark.flags.code == false &&
         mark.flags.html_escape == true
     ) {
-        const idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
-        mark.htmlArray[idx].property.isBracketClosed = true;
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.wiki_style_end, { originalText: "}}}" }));
+        const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.wiki_style);
+        const property = (mark.htmlArray[idx] as HolderTag).property
+        const children = mark.htmlArray.splice(idx);
+        mark.htmlArray.push(new RegularTag(TagEnum.wiki_style, children, property));
         mark.bracketStack.pop();
         setPos(pos + 2);
         return;
@@ -208,22 +187,27 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
 
     // #!html 상태가 아니고 그리고 code bracket 상태인 경우 code bracket 닫기
     if (mark.flags.code == true && mark.flags.html_escape == true) {
-        mark.htmlArray.push(new D_HTMLTag(D_tagEnum.code_end, { originalText: "}}}" }));
-        mark.flags.code = false;
+        const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.code);
+        const property = (mark.htmlArray[idx] as HolderTag).property
+        const children = mark.htmlArray.splice(idx);
+        let tag: RegularTag = new RegularTag(TagEnum.code, children, property);
         if (mark.flags.code_multiline) {
-            mark.htmlArray.push(new D_HTMLTag(D_tagEnum.code_multiline_end));
+            tag = new RegularTag(TagEnum.code_multiline, [tag]);
             mark.flags.code_multiline = false;
         }
+        mark.htmlArray.push(tag);
+        mark.flags.code = false;
         
         const syntaxRegex = /^#!syntax (basic|cpp|csharp|css|erlang|go|java|javascript|json|kotlin|lisp|lua|markdown|objectivec|perl|php|powershell|python|ruby|rust|sh|sql|swift|typescript|xml)(.+)/gs;
-        const code_begin_idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_begin);
-        const code_end_idx = mark.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_end);
-        let code_array = mark.htmlArray.slice(code_begin_idx, code_end_idx + 1);
-        code_array.splice(0, 1);
-        code_array.splice(-1);
         let code_content: string = "";
-        for (const value of code_array) {
-            code_content += value.toString(false, false);
+        for (const child of children) {
+            if (child instanceof TextTag) {
+                child.escape = false;
+                code_content += child.toString();
+            }
+            if (child instanceof SingularTag && child.tagEnum == TagEnum.BR) {
+                code_content += "\n";
+            }
         }
 
         if (syntaxRegex.test(code_content)) {
@@ -236,7 +220,12 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
                 content = match[2];
             }
             converted = hljs.highlight(content, {language}).value
-            mark.htmlArray.splice(code_begin_idx + 1, code_array.length, new D_HTMLTag(D_tagEnum.text, {toBeEscaped: false}, converted))
+            let newtag = new RegularTag(TagEnum.code, [new TextTag(converted, false)], property)
+            if (tag.tagEnum == TagEnum.code_multiline) {
+                mark.htmlArray.splice(-1, 1, new RegularTag(TagEnum.code_multiline, [newtag]))
+            } else {
+                mark.htmlArray.splice(-1, 1, newtag);
+            }
             // converted 결과 -> toBeEscaped: true로 시작, htmlArray [code_begin_idx, code_end_idx]
             // TODO
         }

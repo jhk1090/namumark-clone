@@ -3,7 +3,7 @@ import seekEOL from "./seekEOL";
 
 export class NamuMark {
     wikiText: string;
-    htmlArray: D_HTMLTag[];
+    htmlArray: (TextTag|RegularTag|SingularTag|HolderTag)[];
     flags: {
         strong: boolean;
         italic: boolean;
@@ -19,11 +19,11 @@ export class NamuMark {
     };
     textToken: string[];
     bracketStack: (
-        | D_tagEnum.code_innerbracket_begin
-        | D_tagEnum.text_sizing_begin
-        | D_tagEnum.wiki_style_begin
-        | D_tagEnum.html_bracket_begin
-        | D_tagEnum.text_color_begin
+        | HolderEnum.code_innerbracket
+        | HolderEnum.text_sizing
+        | HolderEnum.wiki_style
+        | HolderEnum.html_bracket
+        | HolderEnum.text_color
     )[];
     preset: {
         theme: "DARK" | "LIGHT";
@@ -65,7 +65,7 @@ export class NamuMark {
 
     parse() {
         if (this.wikiText.startsWith("#redirect")) {
-            this.htmlArray.push(new D_HTMLTag(D_tagEnum.plain_text, {}, this.wikiText));
+            this.htmlArray.push(new TextTag(this.wikiText, true))
         } else {
             for (let pos = 0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos];
@@ -73,7 +73,7 @@ export class NamuMark {
                     /^(?:(=) (.+) =|(==) (.+) ==|(===) (.+) ===|(====) (.+) ====|(=====) (.+) =====|(======) (.+) ======|(=#) (.+) #=|(==#) (.+) #==|(===#) (.+) #===|(====#) (.+) #====|(=====#) (.+) #=====|(======#) (.+) #======)$/g;
 
                 if (now == "\n") {
-                    this.htmlArray.push(new D_HTMLTag(D_tagEnum.br));
+                    this.htmlArray.push(new SingularTag(TagEnum.BR))
                     this.endlineProcessor();
                     this.flags = {
                         ...this.flags,
@@ -113,11 +113,7 @@ export class NamuMark {
                     continue;
                 }
 
-                if (this.flags.html_escape) {
-                    this.htmlArray.push(new D_HTMLTag(D_tagEnum.text, { toBeEscaped: true }, now));
-                } else {
-                    this.htmlArray.push(new D_HTMLTag(D_tagEnum.text, { toBeEscaped: false }, now));
-                }
+                this.htmlArray.push(new TextTag(now, true));
 
                 this.flags.is_line_start = false;
             }
@@ -129,94 +125,87 @@ export class NamuMark {
     endlineProcessor(isWikiTextEnd: boolean = false) {
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화
         if (this.flags.strong) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.strong_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.strong);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.strike_underbar) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.strike_underbar_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.strike_underbar);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.strike_wave) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.strike_wave_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.strike_wave);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.italic) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.italic_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.italic);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.underline) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.underline_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.underline);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.superscript) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.superscript_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.superscript);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.subscript) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.subscript_begin);
-            const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.subscript);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화 (끝)
 
         // code가 줄바꿈 시 <code> -> <pre><code>로 변환
         if (this.flags.code && !isWikiTextEnd && !this.flags.code_multiline) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_begin);
-            const text = this.htmlArray[idx];
-            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.code_multiline_begin), text);
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
+            this.htmlArray.splice(idx, 0, new HolderTag(HolderEnum.code_multiline, ""))
             this.flags.code_multiline = true;
         }
 
         // wikiText가 끝났을 때 code 문법 무효화
         if (this.flags.code && isWikiTextEnd) {
-            const idx_code = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_begin);
-            const text = this.htmlArray[idx_code].property.originalText;
-            this.htmlArray.splice(idx_code, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
+            const text: string = (this.htmlArray[idx] as HolderTag).alt;
+            this.htmlArray.splice(idx, 1, new TextTag(text, true));
             if (this.flags.code_multiline) {
-                const idx_pre = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_multiline_begin);
-                this.htmlArray.splice(idx_pre, 1);
+                const idx_m = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code_multiline);
+                this.htmlArray.splice(idx_m, 1);
             }
         }
 
         // wikiText가 끝났을 때 각종 bracket 무효화
         if (isWikiTextEnd) {
-            for (const queue of Array.from(this.bracketStack).reverse()) {
-                if (queue == D_tagEnum.text_sizing_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
-                    const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
-                } else if (queue == D_tagEnum.text_color_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.text_color_begin && v.property.isBracketClosed == false);
-                    const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
-                } else if (queue == D_tagEnum.wiki_style_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
-                    const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
-                } else if (queue == D_tagEnum.code_innerbracket_begin) {
-                    const idx = this.htmlArray.findLastIndex(
-                        (v) => v.tagEnum == D_tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false
-                    );
-                    const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
-                } else if (queue == D_tagEnum.html_bracket_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
-                    const text = this.htmlArray[idx].property.originalText;
-                    const since_html_bracket: D_HTMLTag[] = this.htmlArray.slice(idx).map((x) => {
-                        if (x.property.toBeEscaped === false) {
-                            x.property.toBeEscaped = true;
-                        }
-                        return x;
-                    });
-                    this.htmlArray = [...this.htmlArray.slice(0, idx), ...since_html_bracket];
-                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
-                }
+            for (const elem of Array.from(this.bracketStack).reverse()) {
+                const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === elem);
+                const text: string = (this.htmlArray[idx] as HolderTag).alt;
+                this.htmlArray.splice(idx, 1, new TextTag(text, true));
+                // if (elem == HolderEnum.text_sizing) {
+                //     const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.text_sizing);
+                //     const text: string = (this.htmlArray[idx] as HolderTag).alt;
+                //     this.htmlArray.splice(idx, 1, new TextTag(text, true));
+                // } else if (elem == HolderEnum.text_color) {
+                //     const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.text_color);
+                //     const text: string = (this.htmlArray[idx] as HolderTag).alt;
+                //     this.htmlArray.splice(idx, 1, new TextTag(text, true));
+                // } else if (elem == HolderEnum.wiki_style) {
+                //     const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.wiki_style);
+                //     const text: string = (this.htmlArray[idx] as HolderTag).alt;
+                //     this.htmlArray.splice(idx, 1, new TextTag(text, true));
+                // } else if (elem == HolderEnum.code_innerbracket) {
+                //     const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code_innerbracket);
+                //     const text: string = (this.htmlArray[idx] as HolderTag).alt;
+                //     this.htmlArray.splice(idx, 1, new TextTag(text, true));
+                // } else if (elem == HolderEnum.html_bracket) {
+                //     const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.html_bracket);
+                //     const text: string = (this.htmlArray[idx] as HolderTag).alt;
+                //     this.htmlArray.splice(idx, 1, new TextTag(text, true));
+                // }
             }
         }
     }
@@ -376,7 +365,7 @@ export class NamuMark {
         let htmlString = "";
         for (const tag of this.htmlArray) {
             // console.log(tag);
-            htmlString += tag.toString(true, true, this.titleLevel);
+            htmlString += tag.toString(this);
         }
         console.log(htmlString);
 
@@ -384,7 +373,7 @@ export class NamuMark {
     }
 }
 
-export enum D_tagEnum {
+enum D_tagEnum {
     holder,
     text,
     plain_text,
@@ -427,7 +416,7 @@ export enum D_tagEnum {
     h6,
 }
 
-export class D_HTMLTag {
+class D_HTMLTag {
     tag: string[];
     tagEnum: D_tagEnum;
     content: string | undefined;
@@ -597,12 +586,47 @@ export class D_HTMLTag {
     }
 }
 
-enum HolderEnum {
-    div_begin = "div_begin",
+export enum HolderEnum {
+    div,
+    text_sizing,
+    code,
+    code_multiline,
+    wiki_style,
+    code_innerbracket,
+    html_bracket,
+    text_color,
+    strong,
+    strike_underbar,
+    strike_wave,
+    italic,
+    superscript,
+    subscript,
+    underline
 }
 
-enum TagEnum {
-    div = "div",
+export enum TagEnum {
+    A = "a",
+    SPAN = "span",
+    DIV = "div",
+    html_bracket = "div",
+    text_sizing = "span",
+    text_color = "span",
+    wiki_style = "div",
+    code = "code",
+    code_multiline = "pre",
+    BR = "br",
+    strong = "strong",
+    strike = "del",
+    italic = "em",
+    superscript = "sup",
+    subscript = "sub",
+    underline = "u",
+    H1 = "h1",
+    H2 = "h2",
+    H3 = "h3",
+    H4 = "h4",
+    H5 = "h5",
+    H6 = "h6"
 }
 
 class Tag {}
@@ -615,7 +639,7 @@ export class TextTag extends Tag {
         this.content = content;
         this.escape = escape;
     }
-    toString() {
+    toString(): string {
         if (this.escape) {
             let map: { [k: string]: string } = {
                 "&": "&amp;",
@@ -632,7 +656,7 @@ export class TextTag extends Tag {
     }
 }
 
-export class HTMLHolderTag extends Tag {
+export class HolderTag extends Tag {
     alt: string;
     holderEnum: HolderEnum;
     property: {
@@ -646,7 +670,7 @@ export class HTMLHolderTag extends Tag {
     }
 }
 
-export class HTMLTag extends Tag {
+export class RegularTag extends Tag {
     tagEnum: TagEnum;
     children: Tag[];
     property: {
@@ -659,12 +683,12 @@ export class HTMLTag extends Tag {
         this.property = property;
     }
 
-    toString() {
+    toString(mark: NamuMark): string {
         let property = "";
         if (Object.keys(this.property).length !== 0) {
             for (const pair of Object.entries(this.property)) {
                 if (pair[1] == "") continue;
-                property += `${pair[0]}="${JSON.stringify(pair[1])}"`;
+                property += `${pair[0]}=${JSON.stringify(pair[1])}`;
             }
             if (property !== "") {
                 property = " " + property;
@@ -679,8 +703,8 @@ export class HTMLTag extends Tag {
                 content += child.toString()
                 continue;
             }
-            if (child instanceof HTMLTag) {
-                content += child.toString();
+            if (child instanceof RegularTag) {
+                content += child.toString(mark);
                 continue;
             }
         }
@@ -688,11 +712,73 @@ export class HTMLTag extends Tag {
     }
 }
 
-export class TitleTag extends HTMLTag {
+export class SingularTag extends Tag {
+    tagEnum: TagEnum;
+    property: {
+        [k: string]: any;
+    }
+    constructor(tagEnum: TagEnum, property: { [k: string]: any } = {}) {
+        super();
+        this.tagEnum = tagEnum;
+        this.property = property;
+    }
+
+    toString(): string {
+        let property = "";
+        if (Object.keys(this.property).length !== 0) {
+            for (const pair of Object.entries(this.property)) {
+                if (pair[1] == "") continue;
+                property += `${pair[0]}=${JSON.stringify(pair[1])}`;
+            }
+            if (property !== "") {
+                property = " " + property;
+            }
+        }
+
+        return `<${this.tagEnum}${property} />`
+    }
+}
+
+export class TitleTag extends RegularTag {
     titleLevelThen: number[];
 
     constructor(tagEnum: TagEnum, children: Tag[], titleLevelThen: number[], property: { [k: string]: any } = {}) {
         super(tagEnum, children, property);
         this.titleLevelThen = titleLevelThen;
+    }
+
+    toString(mark: NamuMark): string {
+        let property = "";
+        if (Object.keys(this.property).length !== 0) {
+            for (const pair of Object.entries(this.property)) {
+                if (pair[1] == "") continue;
+                property += `${pair[0]}=${JSON.stringify(pair[1])}`;
+            }
+            if (property !== "") {
+                property = " " + property;
+            }
+        }
+        
+        let topLevel = mark.titleLevel.findIndex((v) => v !== 0);
+        let titleHeaderContent = this.titleLevelThen
+            .slice(topLevel, this.titleLevelThen.findLastIndex((v) => v !== 0) + 1)
+            .join(".");
+
+        const openTag = `<${this.tagEnum}${property}>`
+        const closeTag = `</${this.tagEnum}>`
+        const headerLink = new RegularTag(TagEnum.A, [new TextTag(titleHeaderContent + ".", true)], {id: titleHeaderContent})
+        let content: string = "";
+        for (const child of this.children) {
+            if (child instanceof TextTag) {
+                content += child.toString()
+                continue;
+            }
+            if (child instanceof RegularTag) {
+                content += child.toString(mark);
+                continue;
+            }
+        }
+        const headerContent = new RegularTag(TagEnum.SPAN, [new TextTag(content, true)], {id: content})
+        return openTag + headerLink.toString(mark) + headerContent.toString(mark) + closeTag;
     }
 }
