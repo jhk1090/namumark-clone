@@ -69,3 +69,7 @@ span[class="size+4"] {
 span[class="size+5"] {
     font-size: 1.667em
 }
+
+code {
+    font-family: monospace;
+}
