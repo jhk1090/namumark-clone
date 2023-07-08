@@ -1,5 +1,8 @@
 @import url("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs.min.css"); /* light mode */
 /* @import url("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css"); */
+html {
+    font-family: "Open Sans","arial","Apple SD Gothic Neo","Noto Sans CJK KR","본고딕","KoPubDotum","나눔바른고딕","나눔고딕","NanumGothic","맑은고딕","Malgun Gothic",sans-serif
+}
 
 ul {
     display: block;
@@ -27,7 +30,9 @@ li {
 }
 
 div {
-    display: inline-block
+    display: inline-block;
+    line-height: 1.5;
+    font-size: 0.9rem;
 }
 
 span[class="size-1"] {

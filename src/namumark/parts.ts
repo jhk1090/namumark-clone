@@ -208,7 +208,7 @@ export class TitleTag extends RegularTag {
 
         const openTag = `<${this.tagEnum}${property}>`
         const closeTag = `</${this.tagEnum}>`
-        const headerLink = new RegularTag(TagEnum.A, [new TextTag(titleHeaderContent + ".", true)], {id: titleHeaderContent})
+        const headerLink = new RegularTag(TagEnum.A, [new TextTag(titleHeaderContent + ".", true)], {id: "s-" + titleHeaderContent})
         let content: string = "";
         for (const child of this.children) {
             if (child instanceof TextTag) {
