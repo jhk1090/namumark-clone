@@ -1,9 +1,9 @@
-import { bracketOpenProcessor, bracketCloseProcessor, textProcessor, titleProcessor } from "./processor"
+import { bracketOpenProcessor, bracketCloseProcessor, textProcessor, titleProcessor } from "./processor";
 import seekEOL from "./seekEOL";
 
 export class NamuMark {
     wikiText: string;
-    htmlArray: HTMLTag[];
+    htmlArray: D_HTMLTag[];
     flags: {
         strong: boolean;
         italic: boolean;
@@ -19,17 +19,17 @@ export class NamuMark {
     };
     textToken: string[];
     bracketStack: (
-        | tagEnum.code_innerbracket_begin
-        | tagEnum.text_sizing_begin
-        | tagEnum.wiki_style_begin
-        | tagEnum.html_bracket_begin
-        | tagEnum.text_color_begin
+        | D_tagEnum.code_innerbracket_begin
+        | D_tagEnum.text_sizing_begin
+        | D_tagEnum.wiki_style_begin
+        | D_tagEnum.html_bracket_begin
+        | D_tagEnum.text_color_begin
     )[];
     preset: {
         theme: "DARK" | "LIGHT";
         title: string;
     };
-    titleLevel: number[]
+    titleLevel: number[];
 
     constructor(
         wikiText: string,
@@ -65,14 +65,15 @@ export class NamuMark {
 
     parse() {
         if (this.wikiText.startsWith("#redirect")) {
-            this.htmlArray.push(new HTMLTag(tagEnum.plain_text, {}, this.wikiText));
+            this.htmlArray.push(new D_HTMLTag(D_tagEnum.plain_text, {}, this.wikiText));
         } else {
             for (let pos = 0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos];
-                const titleRegex = /^(?:(=) (.+) =|(==) (.+) ==|(===) (.+) ===|(====) (.+) ====|(=====) (.+) =====|(======) (.+) ======|(=#) (.+) #=|(==#) (.+) #==|(===#) (.+) #===|(====#) (.+) #====|(=====#) (.+) #=====|(======#) (.+) #======)$/g
+                const titleRegex =
+                    /^(?:(=) (.+) =|(==) (.+) ==|(===) (.+) ===|(====) (.+) ====|(=====) (.+) =====|(======) (.+) ======|(=#) (.+) #=|(==#) (.+) #==|(===#) (.+) #===|(====#) (.+) #====|(=====#) (.+) #=====|(======#) (.+) #======)$/g;
 
                 if (now == "\n") {
-                    this.htmlArray.push(new HTMLTag(tagEnum.br));
+                    this.htmlArray.push(new D_HTMLTag(D_tagEnum.br));
                     this.endlineProcessor();
                     this.flags = {
                         ...this.flags,
@@ -87,8 +88,12 @@ export class NamuMark {
                     };
                     continue;
                 }
-                
-                if (titleRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) && this.flags.is_line_start && this.flags.code == false) {
+
+                if (
+                    titleRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) &&
+                    this.flags.is_line_start &&
+                    this.flags.code == false
+                ) {
                     titleProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
@@ -97,21 +102,21 @@ export class NamuMark {
                     bracketOpenProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
-                
+
                 if (this.wikiText.substring(pos).startsWith("}}}")) {
                     bracketCloseProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
-                
+
                 if (this.textToken.some((text) => this.wikiText.substring(pos).startsWith(text)) && this.flags.code == false) {
                     textProcessor(this, pos, (v) => (pos = v));
                     continue;
                 }
 
                 if (this.flags.html_escape) {
-                    this.htmlArray.push(new HTMLTag(tagEnum.text, { toBeEscaped: true }, now));
+                    this.htmlArray.push(new D_HTMLTag(D_tagEnum.text, { toBeEscaped: true }, now));
                 } else {
-                    this.htmlArray.push(new HTMLTag(tagEnum.text, { toBeEscaped: false }, now));
+                    this.htmlArray.push(new D_HTMLTag(D_tagEnum.text, { toBeEscaped: false }, now));
                 }
 
                 this.flags.is_line_start = false;
@@ -124,57 +129,57 @@ export class NamuMark {
     endlineProcessor(isWikiTextEnd: boolean = false) {
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화
         if (this.flags.strong) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.strong_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.strong_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         if (this.flags.strike_underbar) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.strike_underbar_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.strike_underbar_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         if (this.flags.strike_wave) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.strike_wave_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.strike_wave_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         if (this.flags.italic) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.italic_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.italic_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         if (this.flags.underline) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.underline_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.underline_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         if (this.flags.superscript) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.superscript_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.superscript_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         if (this.flags.subscript) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.subscript_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.subscript_begin);
             const text = this.htmlArray[idx].property.originalText;
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
         }
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화 (끝)
 
         // code가 줄바꿈 시 <code> -> <pre><code>로 변환
         if (this.flags.code && !isWikiTextEnd && !this.flags.code_multiline) {
-            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_begin);
+            const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_begin);
             const text = this.htmlArray[idx];
-            this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.code_multiline_begin), text);
+            this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.code_multiline_begin), text);
             this.flags.code_multiline = true;
         }
 
         // wikiText가 끝났을 때 code 문법 무효화
         if (this.flags.code && isWikiTextEnd) {
-            const idx_code = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_begin);
+            const idx_code = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_begin);
             const text = this.htmlArray[idx_code].property.originalText;
-            this.htmlArray.splice(idx_code, 1, new HTMLTag(tagEnum.text, {}, text));
+            this.htmlArray.splice(idx_code, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
             if (this.flags.code_multiline) {
-                const idx_pre = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_multiline_begin);
+                const idx_pre = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.code_multiline_begin);
                 this.htmlArray.splice(idx_pre, 1);
             }
         }
@@ -182,33 +187,35 @@ export class NamuMark {
         // wikiText가 끝났을 때 각종 bracket 무효화
         if (isWikiTextEnd) {
             for (const queue of Array.from(this.bracketStack).reverse()) {
-                if (queue == tagEnum.text_sizing_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
+                if (queue == D_tagEnum.text_sizing_begin) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.text_sizing_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
-                } else if (queue == tagEnum.text_color_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.text_color_begin && v.property.isBracketClosed == false);
+                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+                } else if (queue == D_tagEnum.text_color_begin) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.text_color_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
-                } else if (queue == tagEnum.wiki_style_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
+                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+                } else if (queue == D_tagEnum.wiki_style_begin) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.wiki_style_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
-                } else if (queue == tagEnum.code_innerbracket_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false);
+                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+                } else if (queue == D_tagEnum.code_innerbracket_begin) {
+                    const idx = this.htmlArray.findLastIndex(
+                        (v) => v.tagEnum == D_tagEnum.code_innerbracket_begin && v.property.isBracketClosed == false
+                    );
                     const text = this.htmlArray[idx].property.originalText;
-                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
-                } else if (queue == tagEnum.html_bracket_begin) {
-                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
+                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
+                } else if (queue == D_tagEnum.html_bracket_begin) {
+                    const idx = this.htmlArray.findLastIndex((v) => v.tagEnum == D_tagEnum.html_bracket_begin && v.property.isBracketClosed == false);
                     const text = this.htmlArray[idx].property.originalText;
-                    const since_html_bracket: HTMLTag[] = this.htmlArray.slice(idx).map((x) => {
+                    const since_html_bracket: D_HTMLTag[] = this.htmlArray.slice(idx).map((x) => {
                         if (x.property.toBeEscaped === false) {
                             x.property.toBeEscaped = true;
                         }
                         return x;
                     });
                     this.htmlArray = [...this.htmlArray.slice(0, idx), ...since_html_bracket];
-                    this.htmlArray.splice(idx, 1, new HTMLTag(tagEnum.text, {}, text));
+                    this.htmlArray.splice(idx, 1, new D_HTMLTag(D_tagEnum.text, {}, text));
                 }
             }
         }
@@ -377,7 +384,7 @@ export class NamuMark {
     }
 }
 
-export enum tagEnum {
+export enum D_tagEnum {
     holder,
     text,
     plain_text,
@@ -417,27 +424,27 @@ export enum tagEnum {
     h3,
     h4,
     h5,
-    h6
+    h6,
 }
 
-export class HTMLTag {
+export class D_HTMLTag {
     tag: string[];
-    tagEnum: tagEnum;
+    tagEnum: D_tagEnum;
     content: string | undefined;
     parameter: {
         [k: string]: string;
     };
-    property: { 
+    property: {
         originalText?: string;
         toBeEscaped?: boolean;
         isBracketClosed?: boolean;
         isFolded?: boolean;
-        titleLevelThen?: (number[] | undefined);
-        titleLevelAt?: (number[] | undefined);
+        titleLevelThen?: number[] | undefined;
+        titleLevelAt?: number | undefined;
     };
 
     constructor(
-        tag: tagEnum,
+        tag: D_tagEnum,
         property: {} = {},
         content: string | undefined = undefined,
         parameter: {
@@ -451,88 +458,88 @@ export class HTMLTag {
         this.parameter = parameter;
     }
 
-    caseAssertion(tag: tagEnum) {
+    caseAssertion(tag: D_tagEnum) {
         switch (tag) {
-            case tagEnum.holder:
+            case D_tagEnum.holder:
                 return [""];
-            case tagEnum.text:
+            case D_tagEnum.text:
                 return ["", ""];
-            case tagEnum.plain_text:
+            case D_tagEnum.plain_text:
                 return ["<div@>", "</div>"];
-            case tagEnum.plain_text_begin:
+            case D_tagEnum.plain_text_begin:
                 return ["<div@>"];
-            case tagEnum.plain_text_end:
+            case D_tagEnum.plain_text_end:
                 return ["</div>"];
-            case tagEnum.strong_begin:
+            case D_tagEnum.strong_begin:
                 return ["<strong@>"];
-            case tagEnum.strong_end:
+            case D_tagEnum.strong_end:
                 return ["</strong>"];
-            case tagEnum.strike_underbar_begin:
+            case D_tagEnum.strike_underbar_begin:
                 return ["<del@>"];
-            case tagEnum.strike_underbar_end:
+            case D_tagEnum.strike_underbar_end:
                 return ["</del>"];
-            case tagEnum.strike_wave_begin:
+            case D_tagEnum.strike_wave_begin:
                 return ["<del@>"];
-            case tagEnum.strike_wave_end:
+            case D_tagEnum.strike_wave_end:
                 return ["</del>"];
-            case tagEnum.italic_begin:
+            case D_tagEnum.italic_begin:
                 return ["<em@>"];
-            case tagEnum.italic_end:
+            case D_tagEnum.italic_end:
                 return ["</em>"];
-            case tagEnum.superscript_begin:
+            case D_tagEnum.superscript_begin:
                 return ["<sup@>"];
-            case tagEnum.superscript_end:
+            case D_tagEnum.superscript_end:
                 return ["</sup>"];
-            case tagEnum.subscript_begin:
+            case D_tagEnum.subscript_begin:
                 return ["<sub@>"];
-            case tagEnum.subscript_end:
+            case D_tagEnum.subscript_end:
                 return ["</sub>"];
-            case tagEnum.underline_begin:
+            case D_tagEnum.underline_begin:
                 return ["<u@>"];
-            case tagEnum.underline_end:
+            case D_tagEnum.underline_end:
                 return ["</u>"];
-            case tagEnum.code_begin:
+            case D_tagEnum.code_begin:
                 return ["<code@>"];
-            case tagEnum.code_end:
+            case D_tagEnum.code_end:
                 return ["</code>"];
-            case tagEnum.code_multiline_begin:
+            case D_tagEnum.code_multiline_begin:
                 return ["<pre@>"];
-            case tagEnum.code_multiline_end:
+            case D_tagEnum.code_multiline_end:
                 return ["</pre>"];
-            case tagEnum.text_sizing_begin:
+            case D_tagEnum.text_sizing_begin:
                 return ["<span@>"];
-            case tagEnum.text_sizing_end:
+            case D_tagEnum.text_sizing_end:
                 return ["</span>"];
-            case tagEnum.wiki_style_begin:
+            case D_tagEnum.wiki_style_begin:
                 return ["<div@>"];
-            case tagEnum.wiki_style_end:
+            case D_tagEnum.wiki_style_end:
                 return ["</div>"];
-            case tagEnum.code_innerbracket_begin:
+            case D_tagEnum.code_innerbracket_begin:
                 return ["{{{"];
-            case tagEnum.code_innerbracket_end:
+            case D_tagEnum.code_innerbracket_end:
                 return ["}}}"];
-            case tagEnum.html_bracket_begin:
+            case D_tagEnum.html_bracket_begin:
                 return ["<div@>"];
-            case tagEnum.html_bracket_end:
+            case D_tagEnum.html_bracket_end:
                 return ["</div>"];
-            case tagEnum.br:
+            case D_tagEnum.br:
                 return ["<br@/>"];
-            case tagEnum.text_color_begin:
+            case D_tagEnum.text_color_begin:
                 return ["<span@>"];
-            case tagEnum.text_color_end:
+            case D_tagEnum.text_color_end:
                 return ["</span>"];
-            case tagEnum.h1:
-                return ["<h1@>", "</h1>"]
-            case tagEnum.h2:
-                return ["<h2@>", "</h2>"]
-            case tagEnum.h3:
-                return ["<h3@>", "</h3>"]
-            case tagEnum.h4:
-                return ["<h4@>", "</h4>"]
-            case tagEnum.h5:
-                return ["<h5@>", "</h5>"]
-            case tagEnum.h6:
-                return ["<h6@>", "</h6>"]
+            case D_tagEnum.h1:
+                return ["<h1@>", "</h1>"];
+            case D_tagEnum.h2:
+                return ["<h2@>", "</h2>"];
+            case D_tagEnum.h3:
+                return ["<h3@>", "</h3>"];
+            case D_tagEnum.h4:
+                return ["<h4@>", "</h4>"];
+            case D_tagEnum.h5:
+                return ["<h5@>", "</h5>"];
+            case D_tagEnum.h6:
+                return ["<h6@>", "</h6>"];
             default:
                 return ["", ""];
         }
@@ -564,13 +571,21 @@ export class HTMLTag {
             }
         }
         if (this.property.titleLevelThen !== undefined && this.property.titleLevelAt !== undefined && this.content !== undefined) {
-            let topLevel = titleLevel.findIndex(v => v !== 0);
-            let titleHeaderContent = this.property.titleLevelThen.slice(topLevel, this.property.titleLevelThen.findLastIndex(v => v !== 0) + 1).join(".");
-            return this.tag[0] + `<a id="${titleHeaderContent}">${titleHeaderContent + "."}</a><span id=\"${this.content}\">` + this.content + "</span>" + this.tag[1];
+            let topLevel = titleLevel.findIndex((v) => v !== 0);
+            let titleHeaderContent = this.property.titleLevelThen
+                .slice(topLevel, this.property.titleLevelThen.findLastIndex((v) => v !== 0) + 1)
+                .join(".");
+            return (
+                this.tag[0] +
+                `<a id="${titleHeaderContent}">${titleHeaderContent + "."}</a><span id=\"${this.content}\">` +
+                this.content +
+                "</span>" +
+                this.tag[1]
+            );
         }
 
         // br 태그 방지용
-        if (this.tagEnum == tagEnum.br && !isNewlineReplaced) {
+        if (this.tagEnum == D_tagEnum.br && !isNewlineReplaced) {
             return "\n";
         }
 
@@ -579,5 +594,105 @@ export class HTMLTag {
         } else {
             return this.tag[0] + this.content + this.tag[1];
         }
+    }
+}
+
+enum HolderEnum {
+    div_begin = "div_begin",
+}
+
+enum TagEnum {
+    div = "div",
+}
+
+class Tag {}
+
+export class TextTag extends Tag {
+    escape: boolean;
+    content: string;
+    constructor(content: string, escape: boolean) {
+        super();
+        this.content = content;
+        this.escape = escape;
+    }
+    toString() {
+        if (this.escape) {
+            let map: { [k: string]: string } = {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+            };
+
+            if (map[this.content] !== undefined) {
+                this.content = map[this.content];
+            }
+        }
+
+        return this.content;
+    }
+}
+
+export class HTMLHolderTag extends Tag {
+    alt: string;
+    holderEnum: HolderEnum;
+    property: {
+        [k: string]: any;
+    }
+    constructor(holderEnum: HolderEnum, alt: string, property: { [k: string]: any } = {}) {
+        super();
+        this.holderEnum = holderEnum;
+        this.alt = alt;
+        this.property = property;
+    }
+}
+
+export class HTMLTag extends Tag {
+    tagEnum: TagEnum;
+    children: Tag[];
+    property: {
+        [k: string]: any;
+    }
+    constructor(tagEnum: TagEnum, children: Tag[], property: { [k: string]: any } = {}) {
+        super();
+        this.tagEnum = tagEnum;
+        this.children = children;
+        this.property = property;
+    }
+
+    toString() {
+        let property = "";
+        if (Object.keys(this.property).length !== 0) {
+            for (const pair of Object.entries(this.property)) {
+                if (pair[1] == "") continue;
+                property += `${pair[0]}="${JSON.stringify(pair[1])}"`;
+            }
+            if (property !== "") {
+                property = " " + property;
+            }
+        }
+
+        const openTag = `<${this.tagEnum}${property}>`
+        const closeTag = `</${this.tagEnum}>`
+        let content: string = "";
+        for (const child of this.children) {
+            if (child instanceof TextTag) {
+                content += child.toString()
+                continue;
+            }
+            if (child instanceof HTMLTag) {
+                content += child.toString();
+                continue;
+            }
+        }
+        return openTag + content + closeTag;
+    }
+}
+
+export class TitleTag extends HTMLTag {
+    titleLevelThen: number[];
+
+    constructor(tagEnum: TagEnum, children: Tag[], titleLevelThen: number[], property: { [k: string]: any } = {}) {
+        super(tagEnum, children, property);
+        this.titleLevelThen = titleLevelThen;
     }
 }
