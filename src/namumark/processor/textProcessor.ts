@@ -1,4 +1,5 @@
-import { NamuMark, HolderEnum, TagEnum, HolderTag, TextTag, RegularTag, SingularTag } from "..";
+import { NamuMark } from "..";
+import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, TitleTag } from "../parts";
 
 export function textProcessor(mark: NamuMark, pos: number, setPos: (v: number) => void) {
     const wikiTextSincePos = mark.wikiText.substring(pos);

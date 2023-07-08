@@ -14,7 +14,6 @@ const parsedText = mark.parse()
  * NamuMark 생성자 호출
  * 생성자.parse() -> 문자 하나하나를 for loop문으로 namumark에 대응시킴
 
-
 # TODO
  * 리팩토링 중 - bracket 기능 완성하기 (#!shebang, 글자 크기, syntax highlighting)
  * tableProcessor, tableParser 제작하기

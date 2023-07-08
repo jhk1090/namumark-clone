@@ -1,4 +1,5 @@
-import { NamuMark, HolderEnum, TagEnum, HolderTag, TextTag, RegularTag, SingularTag } from "..";
+import { NamuMark } from "..";
+import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, TitleTag } from "../parts";
 import seekEOL from "../seekEOL";
 import hljs from "highlight.js"
 

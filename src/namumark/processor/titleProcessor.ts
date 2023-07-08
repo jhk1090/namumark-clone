@@ -1,4 +1,5 @@
-import { NamuMark, HolderEnum, TagEnum, HolderTag, TextTag, RegularTag, SingularTag, TitleTag } from "..";
+import { NamuMark } from "..";
+import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, TitleTag } from "../parts";
 import seekEOL from "../seekEOL";
 
 export function titleProcessor(mark: NamuMark, pos: number, setPos: (v: number) => void) {
