@@ -6,6 +6,7 @@ export function textProcessor(mark: NamuMark, pos: number, setPos: (v: number) =
     const endProcessor = (holder: HolderEnum, tag: TagEnum) => {
         const idx = mark.htmlArray.findLastIndex(v =>  v instanceof HolderTag && v.holderEnum == holder);
         const property = (mark.htmlArray[idx] as HolderTag).property
+        mark.htmlArray.splice(idx, 1)
         const children = mark.htmlArray.splice(idx);
         mark.htmlArray.push(new RegularTag(tag, children, property))
     }
