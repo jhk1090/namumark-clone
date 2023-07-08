@@ -59,11 +59,11 @@ export class TextTag extends Tag {
                 "&": "&amp;",
                 "<": "&lt;",
                 ">": "&gt;",
+                '"': '&quot;',
+                "'": '&#039;'
             };
 
-            if (map[this.content] !== undefined) {
-                this.content = map[this.content];
-            }
+            this.content = this.content.replace(/[&<>"']/g, (m) => map[m]);
         }
 
         return this.content;
@@ -188,6 +188,7 @@ export class TitleTag extends RegularTag {
         let content: string = "";
         for (const child of this.children) {
             if (child instanceof TextTag) {
+                child.escape = false;
                 content += child.toString()
                 continue;
             }

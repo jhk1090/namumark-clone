@@ -4,7 +4,7 @@ import { TextTag, RegularTag, SingularTag, HolderTag, HolderEnum, TagEnum, Title
 
 export class NamuMark {
     wikiText: string;
-    htmlArray: (TextTag|RegularTag|SingularTag|HolderTag)[];
+    htmlArray: (TextTag | RegularTag | SingularTag | HolderTag)[];
     flags: {
         strong: boolean;
         italic: boolean;
@@ -19,13 +19,7 @@ export class NamuMark {
         is_line_start: boolean;
     };
     textToken: string[];
-    bracketStack: (
-        | HolderEnum.code_innerbracket
-        | HolderEnum.text_sizing
-        | HolderEnum.wiki_style
-        | HolderEnum.html_bracket
-        | HolderEnum.text_color
-    )[];
+    bracketStack: (HolderEnum.code_innerbracket | HolderEnum.text_sizing | HolderEnum.wiki_style | HolderEnum.html_bracket | HolderEnum.text_color)[];
     preset: {
         theme: "DARK" | "LIGHT";
         title: string;
@@ -66,7 +60,7 @@ export class NamuMark {
 
     parse() {
         if (this.wikiText.startsWith("#redirect")) {
-            this.htmlArray.push(new TextTag(this.wikiText, true))
+            this.htmlArray.push(new TextTag(this.wikiText, true));
         } else {
             for (let pos = 0; pos < this.wikiText.length; pos++) {
                 const now = this.wikiText[pos];
@@ -74,7 +68,7 @@ export class NamuMark {
                     /^(?:(=) (.+) =|(==) (.+) ==|(===) (.+) ===|(====) (.+) ====|(=====) (.+) =====|(======) (.+) ======|(=#) (.+) #=|(==#) (.+) #==|(===#) (.+) #===|(====#) (.+) #====|(=====#) (.+) #=====|(======#) (.+) #======)$/g;
 
                 if (now == "\n") {
-                    this.htmlArray.push(new SingularTag(TagEnum.BR))
+                    this.htmlArray.push(new SingularTag(TagEnum.BR));
                     this.endlineProcessor();
                     this.flags = {
                         ...this.flags,
@@ -126,37 +120,37 @@ export class NamuMark {
     endlineProcessor(isWikiTextEnd: boolean = false) {
         // texttoken 처리기 - 줄바꿈 시 그전 문법 모두 무효화
         if (this.flags.strong) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.strong);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.strong);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.strike_underbar) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.strike_underbar);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.strike_underbar);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.strike_wave) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.strike_wave);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.strike_wave);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.italic) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.italic);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.italic);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.underline) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.underline);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.underline);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.superscript) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.superscript);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.superscript);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
         if (this.flags.subscript) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.subscript);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.subscript);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
         }
@@ -164,18 +158,18 @@ export class NamuMark {
 
         // code가 줄바꿈 시 <code> -> <pre><code>로 변환
         if (this.flags.code && !isWikiTextEnd && !this.flags.code_multiline) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
-            this.htmlArray.splice(idx, 0, new HolderTag(HolderEnum.code_multiline, ""))
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
+            this.htmlArray.splice(idx, 0, new HolderTag(HolderEnum.code_multiline, ""));
             this.flags.code_multiline = true;
         }
 
         // wikiText가 끝났을 때 code 문법 무효화
         if (this.flags.code && isWikiTextEnd) {
-            const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
+            const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.code);
             const text: string = (this.htmlArray[idx] as HolderTag).alt;
             this.htmlArray.splice(idx, 1, new TextTag(text, true));
             if (this.flags.code_multiline) {
-                const idx_m = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === HolderEnum.code_multiline);
+                const idx_m = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === HolderEnum.code_multiline);
                 this.htmlArray.splice(idx_m, 1);
             }
         }
@@ -183,7 +177,7 @@ export class NamuMark {
         // wikiText가 끝났을 때 각종 bracket 무효화
         if (isWikiTextEnd) {
             for (const elem of Array.from(this.bracketStack).reverse()) {
-                const idx = this.htmlArray.findLastIndex(v => v instanceof HolderTag && v.holderEnum === elem);
+                const idx = this.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum === elem);
                 const text: string = (this.htmlArray[idx] as HolderTag).alt;
                 this.htmlArray.splice(idx, 1, new TextTag(text, true));
             }
