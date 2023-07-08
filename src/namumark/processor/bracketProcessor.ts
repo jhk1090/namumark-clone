@@ -193,8 +193,14 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     if (mark.flags.code == true && mark.flags.html_escape == true) {
         const idx = mark.htmlArray.findLastIndex((v) => v instanceof HolderTag && v.holderEnum == HolderEnum.code);
         const property = (mark.htmlArray[idx] as HolderTag).property
-        mark.htmlArray.splice(idx, 1)
-        const children = mark.htmlArray.splice(idx);
+        let children = [];
+        if (mark.flags.code_multiline) {
+            mark.htmlArray.splice(idx - 1, 2)
+            children = mark.htmlArray.splice(idx - 1);
+        } else {
+            mark.htmlArray.splice(idx, 1)
+            children = mark.htmlArray.splice(idx);
+        }
         let tag: RegularTag = new RegularTag(TagEnum.code, children, property);
         if (mark.flags.code_multiline) {
             tag = new RegularTag(TagEnum.code_multiline, [tag]);
