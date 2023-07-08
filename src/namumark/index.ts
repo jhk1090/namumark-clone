@@ -93,6 +93,12 @@ export class NamuMark {
                     continue;
                 }
 
+                if (this.wikiText.substring(pos).startsWith("##") && this.flags.is_line_start) {
+                    pos = seekEOL(this.wikiText, pos);
+                    this.flags.is_line_start = true;
+                    continue;
+                }
+
                 if (this.wikiText.substring(pos).startsWith("{{{")) {
                     bracketOpenProcessor(this, pos, (v) => (pos = v));
                     continue;
