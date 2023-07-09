@@ -6,7 +6,8 @@ import hljs from "highlight.js"
 export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: number) => void) {
     if (mark.flags.code == false && mark.flags.html_escape == true) {
         const sizingRegex = /^(\+|-)([1-5])( |\n)/g;
-        const wikiStyleRegex = /^#!wiki style="(.+)?"([^\}]+)?\n/g;
+        const wikiStyleRegex = /^#!wiki([^\}]+)?style="(.+)?"([^\}]+)?\n/g;
+        const wikiRegex = /^#!wiki([^\}]+)?\n/g;
         const htmlRegex = /^#!html/g;
         const cssColor =
             "black|gray|grey|silver|white|red|maroon|yellow|olive|lime|green|aqua|cyan|teal|blue|navy|magenta|fuchsia|purple|dimgray|dimgrey|darkgray|darkgrey|lightgray|lightgrey|gainsboro|whitesmoke|brown|darkred|firebrick|indianred|lightcoral|rosybrown|snow|mistyrose|salmon|tomato|darksalmon|coral|orangered|lightsalmon|sienna|seashell|chocolate|saddlebrown|sandybrown|peachpuff|peru|linen|bisque|darkorange|burlywood|anaatiquewhite|tan|navajowhite|blanchedalmond|papayawhip|moccasin|orange|wheat|oldlace|floralwhite|darkgoldenrod|goldenrod|cornsilk|gold|khaki|lemonchiffon|palegoldenrod|darkkhaki|beige|ivory|lightgoldenrodyellow|lightyellow|olivedrab|yellowgreen|darkolivegreen|greenyellow|chartreuse|lawngreen|darkgreen|darkseagreen|forestgreen|honeydew|lightgreen|limegreen|palegreen|seagreen|mediumseagreen|springgreen|mintcream|mediumspringgreen|mediumaquamarine|aquamarine|turquoise|lightseagreen|mediumturquoise|azure|darkcyan|darkslategray|darkslategrey|lightcyan|paleturquoise|darkturquoise|cadetblue|powderblue|lightblue|deepskyblue|skyblue|lightskyblue|steelblue|aliceblue|dodgerblue|lightslategray|lightslategrey|slategray|slategrey|lightsteelblue|comflowerblue|royalblue|darkblue|ghostwhite|lavender|mediumblue|midnightblue|slateblue|darkslateblue|mediumslateblue|mediumpurple|rebeccapurple|blueviolet|indigo|darkorchid|darkviolet|mediumorchid|darkmagenta|plum|thistle|violet|orchid|mediumvioletred|deeppink|hotpink|lavenderblush|palevioletred|crimson|pink|lightpink";
@@ -76,11 +77,18 @@ export function bracketOpenProcessor(mark: NamuMark, pos: number, setPos: (v: nu
             // {{{#!html
             mark.flags.html_escape = false;
             setPos(pos + 8);
+        } else if (wikiRegex.test(mark.wikiText.substring(pos + 3))) {
+            wikiRegex.lastIndex = 0;
+            mark.htmlArray.push(
+                new HolderTag(HolderEnum.wiki_style, `{{{${mark.wikiText.substring(pos + 3, seekEOL(mark.wikiText, pos + 3) + 1)}`)
+            );
+            mark.wikiStack.push(HolderEnum.wiki_style);
+            setPos(seekEOL(mark.wikiText, pos + 3));
         } else if (wikiStyleRegex.test(mark.wikiText.substring(pos + 3))) {
             wikiStyleRegex.lastIndex = 0;
             let style: string = "";
             for (const match of mark.wikiText.substring(pos + 3).matchAll(wikiStyleRegex)) {
-                style = match[1];
+                style = match[2];
             }
             mark.htmlArray.push(
                 new HolderTag(HolderEnum.wiki_style, `{{{${mark.wikiText.substring(pos + 3, seekEOL(mark.wikiText, pos + 3) + 1)}`, { style })
@@ -184,7 +192,10 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
         const property = (mark.htmlArray[idx] as HolderTag).property
         mark.htmlArray.splice(idx, 1)
         const children = mark.htmlArray.splice(idx);
-        mark.htmlArray.push(new RegularTag(TagEnum.wiki_style, children, property));
+        if (property !== undefined)
+            mark.htmlArray.push(new RegularTag(TagEnum.wiki_style, children, property));
+        else
+            mark.htmlArray.push(new RegularTag(TagEnum.wiki_style, children));
         mark.wikiStack.pop();
         setPos(pos + 2);
         return;
