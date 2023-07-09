@@ -18,6 +18,21 @@ const parsedText = mark.parse()
  * RegularTag는 시작 태그와 끝 태그가 있는 HTML 태그이다. RegularTag는 tagEnum과 children, property를 받음. tagEnum = HTML 태그 유형, children = 자식들, property = html 속성값.
  * SingularTag는 끝 태그 없는 HTML 태그이다. SingularTag는 tagEnum과 property를 받음. tagEnum = HTML 태그 유형, property = html 속성값.
 
+## 확장
+```typescript
+// main.ts
+import { NamuMark } from "./namumark";
+
+const text = "== 문법 ==";
+const theme = "LIGHT";
+
+// isIncluded는 include로 호출된 문서
+const mark = new NamuMark(text, { theme, title: "나무마크", isIncluded: false }, [
+    new NamuMark(" 테스트 ", { theme, title: "틀:나무마크", isIncluded: true }),
+]);
+const parsedText = mark.parse();
+```
+
 # TODO
  * 리팩토링 중 - bracket 기능 완성하기 (#!shebang, 글자 크기, syntax highlighting)
  * tableProcessor, tableParser 제작하기

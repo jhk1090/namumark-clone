@@ -28,15 +28,19 @@ export class NamuMark {
     preset: {
         theme: "DARK" | "LIGHT";
         title: string;
+        isIncluded: boolean;
     };
     headingLevel: number[];
+    includingDocuments: NamuMark[];
 
     constructor(
         wikiText: string,
         options: {
             theme: "DARK" | "LIGHT";
             title: string;
-        } = { theme: "DARK", title: "" }
+            isIncluded: boolean;
+        } = { theme: "LIGHT", title: "", isIncluded: false },
+        includingDocuments: NamuMark[] = []
     ) {
         this.wikiText = wikiText;
         this.htmlArray = [];
@@ -61,8 +65,10 @@ export class NamuMark {
         this.preset = {
             theme: options.theme,
             title: options.title,
+            isIncluded: options.isIncluded
         };
         this.headingLevel = [0, 0, 0, 0, 0, 0];
+        this.includingDocuments = includingDocuments;
     }
 
     parse() {
