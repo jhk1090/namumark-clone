@@ -119,6 +119,6 @@ export function headingCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
     }
     mark.flags.heading = false;
     mark.flags.heading_attribute = undefined;
-    setPos(seekEOL(mark.wikiText, pos) - 1);
+    setPos(seekEOL(mark.wikiText, pos));
 }
 

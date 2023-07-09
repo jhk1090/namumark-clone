@@ -216,6 +216,7 @@ export function bracketCloseProcessor(mark: NamuMark, pos: number, setPos: (v: n
             if (child instanceof TextTag) {
                 child.escape = false;
                 code_content += child.toString();
+                child.escape = true;
             }
             if (child instanceof SingularTag && child.tagEnum == TagEnum.BR) {
                 code_content += "\n";

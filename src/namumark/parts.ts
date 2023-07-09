@@ -46,7 +46,9 @@ export enum TagEnum {
     H3 = "h3",
     H4 = "h4",
     H5 = "h5",
-    H6 = "h6"
+    H6 = "h6",
+    IFRAME = "iframe",
+    time = "time",
 }
 
 class Tag {}
@@ -220,6 +222,7 @@ export class HeadingTag extends RegularTag {
             if (child instanceof TextTag) {
                 child.escape = false;
                 content += child.toString()
+                child.escape = true;
                 continue;
             }
             if (child instanceof RegularTag) {

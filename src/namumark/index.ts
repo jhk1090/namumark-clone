@@ -73,6 +73,8 @@ export class NamuMark {
                 const now = this.wikiText[pos];
                 const headingStartRegex = /^(?:= |== |=== |==== |===== |====== |=# |==# |===# |====# |=====# |======# )/g;
                 const headingEndRegex = /^(?: =| ==| ===| ====| =====| ======| #=| #==| #===| #====| #=====| #======)$/g;
+                const anchorWithNoArguments = /^\[(clearfix|date|datetime|목차|tableofcontents|각주|footnote|br|pagecount)\]/g;
+                const anchorWithArguments = /^\[(anchor|age|dday|math|youtube|kakaotv|niconicovideo|vimeo|navertv|pagecount)\((.+)\)\]/g;
 
                 if (now == "\n") {
                     this.htmlArray.push(new SingularTag(TagEnum.BR));
@@ -100,6 +102,59 @@ export class NamuMark {
 
                 if (headingEndRegex.test(this.wikiText.substring(pos, seekEOL(this.wikiText, pos))) && this.flags.code == false && this.flags.heading && this.flags.heading_attribute !== undefined) {
                     headingCloseProcessor(this, pos, v => pos = v);
+                    this.flags.is_line_start = true;
+                    continue;
+                }
+
+                if (anchorWithNoArguments.test(this.wikiText.substring(pos)) && this.flags.code == false) {
+                    anchorWithNoArguments.lastIndex = 0;
+                    const result = Array.from(this.wikiText.substring(pos).matchAll(anchorWithNoArguments))[0];
+                    const anchorFull = result[0];
+                    const anchorName = result[1];
+                    switch (anchorName) {
+                        case "clearfix":
+                            this.htmlArray.push(new RegularTag(TagEnum.DIV, [], { style: "clear: both;" }));
+                            break;
+                        case "date":
+                        case "datetime":
+                            const now = new Date()
+                            this.htmlArray.push(new RegularTag(TagEnum.time, [new TextTag(now.toISOString().replace("T", " ").slice(0, -5) + "+0900", true)], {"date-format": "Y-m-d H:i:sO", datetime: now.toISOString()}))
+                            break;
+                        case "br":
+                            this.htmlArray.push(new SingularTag(TagEnum.BR))
+                            break;
+                        case "pagecount":
+                            this.htmlArray.push(new TextTag("0", true));
+                            break;
+                        default:
+                            this.htmlArray.push(new RegularTag(TagEnum.DIV, [], { id: anchorName }));
+                            break;
+                    }
+                    pos += anchorFull.length - 1;
+                    continue;
+                }
+
+                if (anchorWithArguments.test(this.wikiText.substring(pos)) && this.flags.code == false) {
+                    anchorWithArguments.lastIndex = 0;
+                    const result = Array.from(this.wikiText.substring(pos).matchAll(anchorWithArguments))[0];
+                    const anchorFull = result[0];
+                    const anchorName = result[1];
+                    const anchorContent = result[2];
+                    switch (anchorName) {
+                        case "youtube":
+                            this.htmlArray.push(new RegularTag(TagEnum.IFRAME, [], { width: "640", height: "360", src: `https://www.youtube.com/embed/${anchorContent}`, title: "YouTube video player", frameborder: "0", allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share", allowfullscreen: "true"}))
+                            break;
+                        case "pagecount":
+                            this.htmlArray.push(new TextTag("0", true));
+                            break;
+                        case "anchor":
+                            this.htmlArray.push(new RegularTag(TagEnum.A, [], {id: (new TextTag(anchorContent, true)).toString()}))
+                            break;
+                        default:
+                            this.htmlArray.push(new RegularTag(TagEnum.DIV, [new TextTag(anchorContent, true)], {id: anchorName}))
+                            break;
+                    }
+                    pos += anchorFull.length - 1;
                     continue;
                 }
 

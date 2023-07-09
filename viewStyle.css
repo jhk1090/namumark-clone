@@ -4,6 +4,22 @@ html {
     font-family: "Open Sans","arial","Apple SD Gothic Neo","Noto Sans CJK KR","본고딕","KoPubDotum","나눔바른고딕","나눔고딕","NanumGothic","맑은고딕","Malgun Gothic",sans-serif
 }
 
+a {
+    color: #0275d8;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+del {
+    color: gray;
+}
+
+del:hover {
+    text-decoration: none;
+}
+
 ul {
     display: block;
     list-style-type: disc;
@@ -89,12 +105,4 @@ code {
     border-bottom: 1px solid #ccc;
     margin: 1.2em 0 .8em;
     padding-bottom: 5px;
-}
-
-.heading > a {
-    color: #0275d8;
-}
-
-.heading > a:hover {
-    text-decoration: underline;
 }
